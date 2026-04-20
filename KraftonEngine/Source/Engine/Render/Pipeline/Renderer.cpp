@@ -2,7 +2,6 @@
 
 #include "Render/Types/RenderTypes.h"
 #include "Render/Resource/ShaderManager.h"
-#include "Render/Resource/ConstantBufferPool.h"
 #include "Editor/UI/EditorConsoleWidget.h"
 #include "Render/Proxy/FScene.h"
 #include "Profiling/Stats.h"
@@ -20,7 +19,6 @@ void FRenderer::Create(HWND hWindow)
 	}
 
 	FShaderManager::Get().Initialize(Device.GetDevice());
-	FConstantBufferPool::Get().Initialize(Device.GetDevice());
 	Resources.Create(Device.GetDevice());
 
 	PassRenderStateTable.Initialize();
@@ -38,7 +36,6 @@ void FRenderer::Release()
 	Builder.Release();
 
 	Resources.Release();
-	FConstantBufferPool::Get().Release();
 	FShaderManager::Get().Release();
 	FMaterialManager::Get().Release();
 	Device.Release();
