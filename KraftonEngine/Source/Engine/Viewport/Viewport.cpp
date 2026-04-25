@@ -178,11 +178,35 @@ bool FViewport::CreateResources()
 
 	// --- Shadow Atlas resources ---
 	D3D11_TEXTURE2D_DESC ShadowAtlasDesc = {};
-	ShadowAtlasDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	ShadowAtlasDesc.Usage = D3D11_USAGE_DEFAULT;
+	ShadowAtlasDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	ShadowAtlasDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	ShadowAtlasDesc.SampleDesc.Count = 1;
 	ShadowAtlasDesc.Width = 4096;
 	ShadowAtlasDesc.Height = 4096;
-	ShadowAtlasDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
-	ShadowAtlasDesc.SampleDesc = 1;
+	ShadowAtlasDesc.MipLevels = 1;
+	ShadowAtlasDesc.ArraySize = 1;
+	hr = Device->CreateTexture2D(&ShadowAtlasDesc, nullptr, &ShadowAtlasTexture);
+	if (FAILED(hr)) return false;
+
+	// Shadow Atlas DSV
+	D3D11_DEPTH_STENCIL_VIEW_DESC ShadowAtlasDSVDesc = {};
+	ShadowAtlasDSVDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	ShadowAtlasDSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	ShadowAtlasDSVDesc.Texture2D.MipSlice = 0;
+
+	hr = Device->CreateDepthStencilView(ShadowAtlasTexture, &ShadowAtlasDSVDesc, &ShadowAtlasDSV);
+	if (FAILED(hr)) return false;
+
+	// Shadow Atlas SRV
+	D3D11_SHADER_RESOURCE_VIEW_DESC ShadowAtlasSRVDesc = {};
+	ShadowAtlasSRVDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	ShadowAtlasSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	ShadowAtlasSRVDesc.Texture2D.MipLevels = 1;
+	ShadowAtlasSRVDesc.Texture2D.MostDetailedMip = 0;
+
+	hr = Device->CreateShaderResourceView(ShadowAtlasTexture, &ShadowAtlasSRVDesc, &ShadowAtlasSRV);
+	if (FAILED(hr)) return false;
 
 
 	// ── GBuffer Normal RT (R16G16B16A16_FLOAT — 음수 지원) ──
