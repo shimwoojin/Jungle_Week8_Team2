@@ -58,8 +58,9 @@ private:
 
 
 private:
-	std::queue<Node> NodeQueue;	// Queue for breadth-first traversal of the quadtree
-	TArray<Node> Nodes;
+	std::queue<int32> NodeQueue;	// Queue for breadth-first traversal of the quadtree
+	TArray<Node>	  Nodes;
 	
-	float MinShadowMapResolution = 64;
+	float AtlasSize				 = 4096.f;
+	float MinShadowMapResolution = 64.f;
 };

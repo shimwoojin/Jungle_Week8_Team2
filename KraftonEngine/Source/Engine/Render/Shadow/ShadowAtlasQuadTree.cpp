@@ -10,6 +10,7 @@ void FShadowAtlasQuadTree::Init(float InAtlasSize, float InMinShadowMapResolutio
 		return;
 	}
 
+	AtlasSize = InAtlasSize;
 	MinShadowMapResolution = InMinShadowMapResolution;
 	Node RootNode		= {};
 	RootNode.TopLeft	= FVector2(0.f, 0.f);
