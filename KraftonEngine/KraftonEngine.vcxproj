@@ -369,6 +369,7 @@
     <ClCompile Include="Source\Engine\Render\RenderPass\RenderPassPipeline.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\RenderPassRegistry.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderPass\SelectionMaskPass.cpp" />
+    <ClCompile Include="Source\Engine\Render\RenderPass\ShadowDepth.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderState\BlendStateManager.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderState\DepthStencilStateManager.cpp" />
     <ClCompile Include="Source\Engine\Render\RenderState\RasterizerStateManager.cpp" />
@@ -561,6 +562,7 @@
     <ClInclude Include="Source\Engine\Render\RenderPass\RenderPassPipeline.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\RenderPassRegistry.h" />
     <ClInclude Include="Source\Engine\Render\RenderPass\SelectionMaskPass.h" />
+    <ClInclude Include="Source\Engine\Render\RenderPass\ShadowDepth.h" />
     <ClInclude Include="Source\Engine\Render\RenderState\BlendStateManager.h" />
     <ClInclude Include="Source\Engine\Render\RenderState\DepthStencilStateManager.h" />
     <ClInclude Include="Source\Engine\Render\RenderState\RasterizerStateManager.h" />

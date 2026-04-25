@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Math/Matrix.h"
 #include "Math/Vector.h"
 #include "Core/EngineTypes.h"
 
@@ -67,6 +68,18 @@ struct FLightInfo
 static_assert(sizeof(FLightInfo) % 16 == 0, "FLightInfo must be 16-byte aligned for StructuredBuffer");
 static_assert(sizeof(FLightInfo) == 80, "FLightInfo size mismatch with HLSL");
 
+struct FLightAtlasEntry {
+	FMatrix  LightViewProj;         // 64B
+
+    float    UOffset;
+	float    VOffset;
+	float	 Resolution;
+	float    ResolutionScale;		// 16B
+
+	uint32   LightId;
+	float    Pad[3];                // 16B
+}; // 96B
+static_assert(sizeof(FLightAtlasEntry) % 16 == 0, "FLightAtlasEntry must be 16-byte aligned for StructuredBuffer");
 // =============================================================================
 // Lighting Constant Buffer (b3) — Ambient + Directional + 메타데이터
 // =============================================================================

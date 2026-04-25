@@ -756,6 +756,9 @@
       <Filter>ThirdParty\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Source\Engine\Render\RenderPass\ShadowDepth.cpp">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Editor\EditorEngine.h">
@@ -1378,6 +1381,9 @@
     </ClInclude>
     <ClInclude Include="ThirdParty\SimpleJSON\json.hpp">
       <Filter>ThirdParty\SimpleJSON</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Render\RenderPass\ShadowDepth.h">
+      <Filter>Source\Engine\Render\RenderPass</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
