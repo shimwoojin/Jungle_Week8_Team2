@@ -34,7 +34,7 @@ void FShadowDepthPass::BeginPass(const FPassContext& Ctx) {
 		if (!Region.bValid) continue;
 
 		FLightAtlasEntry Entry;
-		Entry.LightViewProjection = ComputeLightViewProj(Light);
+		Entry.LightViewProj = ComputeLightViewProj(Light);
 		Entry.UOffset = Region.X / Quadtree.GetAtlasSize();
 		Entry.VOffset = Region.Y / Quadtree.GetAtlasSize();
 		Entry.Resolution = Region.Size;
