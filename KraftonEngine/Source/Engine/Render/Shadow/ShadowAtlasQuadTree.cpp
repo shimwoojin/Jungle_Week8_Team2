@@ -18,10 +18,14 @@ void FShadowAtlasQuadTree::Init(float InAtlasSize, float InMinShadowMapResolutio
 	Nodes.push_back(RootNode);
 }
 
-void FShadowAtlasQuadTree::Add(FLightInfo& InLightInfo) {
+FAtlasRegion FShadowAtlasQuadTree::Add(FLightInfo& InLightInfo) {
 	// First check if there is a node of fitting size.
 	
+	// Shrink the resolution until the requested resolution is less than or equal to any available nodes.
 
+	// Split the node if a node of sufficient size is found but is too large for the requested resolution.
+
+	// Otherwise, disregard the light source. It won't produce a shadow map this frame.
 }
 
 void FShadowAtlasQuadTree::Clear() {
@@ -30,16 +34,25 @@ void FShadowAtlasQuadTree::Clear() {
 }
 
 // Private helpers
+FAtlasRegion FShadowAtlasQuadTree::AllocateNode(int32 NodeIdx, uint32 RequestedSize) {
+	if (!NodeIdx) {
+		return {0, 0, 0, false};
+	}
+}
+
 void FShadowAtlasQuadTree::Split(float Idx) {
 
 }
 
-float FShadowAtlasQuadTree::EvaluateLightImportance(const FLightInfo& InLightInfo) {
+float FShadowAtlasQuadTree::EvaluateResolution(const FLightInfo& InLightInfo) const {
 	FVector  Direction = InLightInfo.Direction;
 	FVector4 Color	   = InLightInfo.Color;
 	float    Intensity = InLightInfo.Intensity;
 	float    Radius    = InLightInfo.AttenuationRadius; 
 	float    Falloff   = InLightInfo.FalloffExponent;
+
+	// Spotlight evaluation
+
 
 	return 0.f;
 }
