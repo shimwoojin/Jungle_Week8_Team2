@@ -44,11 +44,16 @@ void FShadowAtlasQuadTree::Clear() {
 }
 
 // Private helpers
-FAtlasRegion FShadowAtlasQuadTree::AllocateNode(uint32 NodeIdx, uint32 RequestedSize) {
+FAtlasRegion FShadowAtlasQuadTree::AllocateNode(int32 NodeIdx, uint32 RequestedSize) {
+	if (NodeIdx < 0) {
+		// Invalid Node index
+		return { 0, 0, 0, false };
+	}
+
 
 }
 
-void FShadowAtlasQuadTree::Split(float Idx) {
+void FShadowAtlasQuadTree::Split(int32 Idx) {
 
 }
 
