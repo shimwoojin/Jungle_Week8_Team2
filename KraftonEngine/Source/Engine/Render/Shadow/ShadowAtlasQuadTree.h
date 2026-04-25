@@ -45,7 +45,7 @@ public:
 
 private:
 	// Allocates the node at NodeIdx and returns the corresponding atlas region. Returns invalid region if the node is occupied or too small.
-	FAtlasRegion AllocateNode(int32 NodeIdx, uint32 RequestedSize);
+	FAtlasRegion AllocateNode(uint32 NodeIdx, uint32 RequestedSize);
 
 	// Greedily splits the quadtree to find the best fit for the new shadow map
 	void  Split(float Idx);

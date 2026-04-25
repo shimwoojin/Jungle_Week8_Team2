@@ -6,7 +6,7 @@ void FShadowAtlasQuadTree::Init(float InAtlasSize, float InMinShadowMapResolutio
 	if (InMinShadowMapResolution <= 0.f || InAtlasSize <= 0.f) {
 		return;
 	}
-	if (InMinShadowMapResolution < InAtlasSize) {
+	if (InMinShadowMapResolution > InAtlasSize) {
 		return;
 	}
 
@@ -26,6 +26,7 @@ FAtlasRegion FShadowAtlasQuadTree::Add(FLightInfo& InLightInfo) {
 	// Split the node if a node of sufficient size is found but is too large for the requested resolution.
 
 	// Otherwise, disregard the light source. It won't produce a shadow map this frame.
+	return { 0, 0, 0, false };
 }
 
 void FShadowAtlasQuadTree::Clear() {
@@ -34,10 +35,8 @@ void FShadowAtlasQuadTree::Clear() {
 }
 
 // Private helpers
-FAtlasRegion FShadowAtlasQuadTree::AllocateNode(int32 NodeIdx, uint32 RequestedSize) {
-	if (!NodeIdx) {
-		return {0, 0, 0, false};
-	}
+FAtlasRegion FShadowAtlasQuadTree::AllocateNode(uint32 NodeIdx, uint32 RequestedSize) {
+
 }
 
 void FShadowAtlasQuadTree::Split(float Idx) {
