@@ -140,14 +140,21 @@ bool FShadowAtlasQuadTree::Split(int32 Idx) {
 }
 
 float FShadowAtlasQuadTree::EvaluateResolution(const FLightInfo& InLightInfo) const {
-	FVector  Direction = InLightInfo.Direction;
 	FVector4 Color	   = InLightInfo.Color;
 	float    Intensity = InLightInfo.Intensity;
 	float    Radius    = InLightInfo.AttenuationRadius; 
 	float    Falloff   = InLightInfo.FalloffExponent;
 
 	// Spotlight evaluation
+	float Score = 0.f;
+	Score += Color.X * 0.2126f + Color.Y * 0.7152f + Color.Z * 0.0722f; // Luminance
+	Score *= Intensity;
+	Score *= Radius;
+	Score += pow(Falloff, 2.f);
 
-
-	return 0.f;
+	uint32 res = 64;
+	if (Score > 50.f)  res = 128;
+	if (Score > 200.f) res = 256;
+	if (Score > 800.f) res = 512;
+	return res;
 }
