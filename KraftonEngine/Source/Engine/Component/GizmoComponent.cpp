@@ -5,10 +5,10 @@
 #include "Math/MathUtils.h"
 #include "Math/Quat.h"
 #include "Render/Resource/MeshBufferManager.h"
-#include "Render/Resource/ShaderManager.h"
+#include "Render/Shader/ShaderManager.h"
 #include "Collision/RayUtils.h"
 #include "Render/Proxy/GizmoSceneProxy.h"
-#include "Render/Proxy/FScene.h"
+#include "Render/Scene/FScene.h"
 #include <cfloat>
 
 IMPLEMENT_CLASS(UGizmoComponent, UPrimitiveComponent)

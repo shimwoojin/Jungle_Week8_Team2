@@ -1,7 +1,7 @@
 #include "ClusteredLightCuller.h"
-#include "Render/Pipeline/RenderConstants.h"
-#include "Render/Pipeline/FrameContext.h"
-#include "Render/Resource/ShaderManager.h"
+#include "Render/Types/RenderConstants.h"
+#include "Render/Types/FrameContext.h"
+#include "Render/Shader/ShaderManager.h"
 
 namespace
 {

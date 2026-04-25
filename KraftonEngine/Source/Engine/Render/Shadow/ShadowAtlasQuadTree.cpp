@@ -1,5 +1,5 @@
 ﻿#include "ShadowAtlasQuadTree.h"
-#include "Render/Pipeline/ForwardLightData.h"
+#include "Render/Types/ForwardLightData.h"
 
 // Public functions
 void FShadowAtlasQuadTree::Init(float InAtlasSize, float InMinShadowMapResolution) {

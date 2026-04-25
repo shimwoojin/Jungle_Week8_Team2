@@ -2,13 +2,13 @@
 #include "Editor/EditorEngine.h"
 #include "Editor/Viewport/LevelEditorViewportClient.h"
 #include "Render/Pipeline/Renderer.h"
-#include "Render/Proxy/FScene.h"
+#include "Render/Scene/FScene.h"
 #include "Viewport/Viewport.h"
 #include "Component/CameraComponent.h"
 #include "GameFramework/World.h"
 #include "Profiling/Stats.h"
 #include "Profiling/GPUProfiler.h"
-#include "Engine/Render/Pipeline/ForwardLightData.h"
+#include "Engine/Render/Types/ForwardLightData.h"
 
 FEditorRenderPipeline::FEditorRenderPipeline(UEditorEngine* InEditor, FRenderer& InRenderer)
 	: Editor(InEditor)

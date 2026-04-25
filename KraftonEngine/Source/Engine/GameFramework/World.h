@@ -7,8 +7,8 @@
 #include "GameFramework/Level.h"
 #include "Component/CameraComponent.h"
 #include "GameFramework/WorldContext.h"
-#include "Render/Proxy/FScene.h"
-#include "Render/Pipeline/LODContext.h"
+#include "Render/Scene/FScene.h"
+#include "Render/Types/LODContext.h"
 #include <Collision/Octree.h>
 #include <Collision/SpatialPartition.h>
 

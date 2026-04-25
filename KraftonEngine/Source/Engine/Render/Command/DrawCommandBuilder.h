@@ -1,9 +1,9 @@
 ﻿#pragma once
 
-#include "Render/Pipeline/DrawCommandList.h"
-#include "Render/Pipeline/FrameContext.h"
-#include "Render/Helper/LineGeometry.h"
-#include "Render/Helper/FontGeometry.h"
+#include "Render/Command/DrawCommandList.h"
+#include "Render/Types/FrameContext.h"
+#include "Render/Geometry/LineGeometry.h"
+#include "Render/Geometry/FontGeometry.h"
 #include "Render/Proxy/PrimitiveSceneProxy.h"
 
 class FPassRenderStateTable;
