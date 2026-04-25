@@ -36,13 +36,15 @@ public:
 	void Init(float InAtlasSize, float inMinShadowMapResolution);
 
 	// Try allocating the uv region for the input light source
-	FAtlasRegion Add(FLightInfo& InLightInfo);
+	FAtlasRegion Add(const FLightInfo& InLightInfo);
 
 	// Called every frame to reset the atlas.
 	void Reset();
 
 	// Hard clear including the root node
 	void Clear();
+
+	float GetAtlasSize() const { return AtlasSize; }
 
 private:
 	// Allocates the node at NodeIdx and returns the corresponding atlas region. Returns invalid region if the node is occupied or too small.

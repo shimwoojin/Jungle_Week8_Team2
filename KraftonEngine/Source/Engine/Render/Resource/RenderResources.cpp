@@ -185,6 +185,7 @@ void FSystemResources::UpdateLightBuffer(FD3DDevice& Device, const FScene& Scene
 	Ctx->PSSetConstantBuffers(ECBSlot::Lighting, 1, &b4);
 	Ctx->CSSetConstantBuffers(ECBSlot::Lighting, 1, &b4);
 
+	CachedLightInfos = Infos;
 	ForwardLights.Update(Dev, Ctx, Infos);
 	Ctx->VSSetShaderResources(ELightTexSlot::AllLights, 1, &ForwardLights.LightBufferSRV);
 	Ctx->PSSetShaderResources(ELightTexSlot::AllLights, 1, &ForwardLights.LightBufferSRV);

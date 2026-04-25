@@ -148,4 +148,7 @@ struct FSystemResources
 	void BindClusterCullingResources(FD3DDevice& Device);
 	void UnbindClusterCullingResources(FD3DDevice& Device);
 	void SubmitCullingDebugLines(ID3D11DeviceContext* DC, class UWorld* World);
+
+	// Cached lights
+	TArray<FLightInfo> CachedLightInfos;
 };

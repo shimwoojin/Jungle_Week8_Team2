@@ -19,7 +19,7 @@ void FShadowAtlasQuadTree::Init(float InAtlasSize, float InMinShadowMapResolutio
 	Nodes.push_back(RootNode);
 }
 
-FAtlasRegion FShadowAtlasQuadTree::Add(FLightInfo& InLightInfo) {
+FAtlasRegion FShadowAtlasQuadTree::Add(const FLightInfo& InLightInfo) {
 	if (Nodes.empty()) return { 0, 0, 0, false };
 
 	uint32 RequestedSize = static_cast<uint32>(EvaluateResolution(InLightInfo));
