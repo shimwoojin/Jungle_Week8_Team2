@@ -380,6 +380,7 @@
     <ClCompile Include="Source\Engine\Render\Resource\SamplerStateManager.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\Shader.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\ShaderManager.cpp" />
+    <ClCompile Include="Source\Engine\Render\Shadow\ShadowAtlasQuadTree.cpp" />
     <ClCompile Include="Source\Engine\Resource\ResourceManager.cpp" />
     <ClCompile Include="Source\Engine\Runtime\Engine.cpp" />
     <ClCompile Include="Source\Engine\Runtime\EngineLoop.cpp" />
@@ -574,6 +575,7 @@
     <ClInclude Include="Source\Engine\Render\Resource\Shader.h" />
     <ClInclude Include="Source\Engine\Render\Resource\ShaderInclude.h" />
     <ClInclude Include="Source\Engine\Render\Resource\ShaderManager.h" />
+    <ClInclude Include="Source\Engine\Render\Shadow\ShadowAtlasQuadTree.h" />
     <ClInclude Include="Source\Engine\Render\Types\FogParams.h" />
     <ClInclude Include="Source\Engine\Render\Types\GlobalLightParams.h" />
     <ClInclude Include="Source\Engine\Render\Types\MaterialTextureSlot.h" />

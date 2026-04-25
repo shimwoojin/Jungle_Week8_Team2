@@ -151,6 +151,9 @@
     <Filter Include="ThirdParty\SimpleJSON">
       <UniqueIdentifier>{b5b63371-405e-e009-4e4e-e3b5a25ee7bd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source\Engine\Render\Shadow">
+      <UniqueIdentifier>{203de269-ff0b-4f9b-80e7-76a58337cfba}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\ClusterConstructCS.hlsl">
@@ -735,6 +738,9 @@
       <Filter>ThirdParty\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Source\Engine\Render\Shadow\ShadowAtlasQuadTree.cpp">
+      <Filter>Source\Engine\Render\Shadow</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Editor\EditorEngine.h">
@@ -1351,6 +1357,9 @@
     </ClInclude>
     <ClInclude Include="ThirdParty\SimpleJSON\json.hpp">
       <Filter>ThirdParty\SimpleJSON</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Render\Shadow\ShadowAtlasQuadTree.h">
+      <Filter>Source\Engine\Render\Shadow</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
