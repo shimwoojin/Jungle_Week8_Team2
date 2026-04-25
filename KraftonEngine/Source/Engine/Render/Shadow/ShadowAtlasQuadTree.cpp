@@ -14,6 +14,8 @@ void FShadowAtlasQuadTree::Init(float InAtlasSize, float InMinShadowMapResolutio
 	Node RootNode		= {};
 	RootNode.TopLeft	= FVector2(0.f, 0.f);
 	RootNode.Resolution = InAtlasSize;
+
+	Nodes.push_back(RootNode);
 }
 
 void FShadowAtlasQuadTree::Add(FLightInfo& InLightInfo) {
@@ -23,11 +25,12 @@ void FShadowAtlasQuadTree::Add(FLightInfo& InLightInfo) {
 }
 
 void FShadowAtlasQuadTree::Clear() {
-
+	NodeQueue = {};
+	Nodes.clear();
 }
 
 // Private helpers
-void FShadowAtlasQuadTree::SplitQuadTree() {
+void FShadowAtlasQuadTree::Split(float Idx) {
 
 }
 

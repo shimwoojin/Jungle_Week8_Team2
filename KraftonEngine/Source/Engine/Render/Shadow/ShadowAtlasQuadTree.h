@@ -19,13 +19,15 @@ struct FLightInfo;
 struct Node {
 	// Dimensions
 	FVector2		TopLeft;
-	float			Resolution;			// Minimum resolution = 64 x 64
+	float			Resolution;
 
 	// Data
 	bool			bOccupied = false;	// True if and only if this node is allocated to a shadow map by whole
 	bool			bSplit    = false;
 	int32			Children[4] = {-1, -1, -1, -1};		// indices into Nodes[], -1 = no child
 };
+
+struct FAtlasRegion { uint32 X, Y, Size; bool bValid; };
 
 // Buddy allocation quadtree for shadow atlas management
 class FShadowAtlasQuadTree {
@@ -39,7 +41,7 @@ public:
 
 private:
 	// Greedily splits the quadtree to find the best fit for the new shadow map
-	void  SplitQuadTree();
+	void  Split(float Idx);
 
 	// Ranks the importance of the input light source based on its properties.
 	float EvaluateLightImportance(const FLightInfo& InLightInfo);
@@ -49,5 +51,5 @@ private:
 	std::queue<Node> NodeQueue;	// Queue for breadth-first traversal of the quadtree
 	TArray<Node> Nodes;
 	
-	float MinShadowMapResolution;
+	float MinShadowMapResolution = 64;
 };
