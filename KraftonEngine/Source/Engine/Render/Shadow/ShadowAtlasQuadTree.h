@@ -25,7 +25,7 @@ struct Node {
 
 	// Data
 	bool			bOccupied = false;	// True if and only if this node is allocated to a shadow map by whole
-	bool			bSplit    = false;
+	bool			bSplit    = false;  // True if and only if this node has been split into a subtree
 	int32			Children[4] = {-1, -1, -1, -1};		// indices into Nodes[], -1 = no child
 };
 

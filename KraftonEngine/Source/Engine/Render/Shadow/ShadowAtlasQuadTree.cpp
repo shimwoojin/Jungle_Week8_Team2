@@ -20,16 +20,41 @@ void FShadowAtlasQuadTree::Init(float InAtlasSize, float InMinShadowMapResolutio
 }
 
 FAtlasRegion FShadowAtlasQuadTree::Add(FLightInfo& InLightInfo) {
-	// First check if there is a node of fitting size.
+	// First check if there is a node of a sufficient size.
+	if (!Nodes.empty()) {
+		NodeQueue.push(0);  // Traverse from the root node
+	} else {
+	    // Function called before initialization. Should not allocate
+		return { 0, 0, 0, false };
+	}
+
+	// Find the tightest resolution available that can fit the requested resolution for the new shadow map.
+	float BestResolution = 0.f;
+	float RequestedResolution = EvaluateResolution(InLightInfo);
+	while (!NodeQueue.empty()) {
+		Node curr = Nodes[NodeQueue.front()];
+		if (curr.bOccupied) {
+			NodeQueue.pop();
+			continue;
+		}
+
+		if (curr.Resolution >= RequestedResolution && curr.Resolution < BestResolution) {
+			BestResolution = RequestedResolution;
+		}
+
+		NodeQueue.pop();
+
+		for (uint8 i = 0; i < 4; i++) {
+			if (curr.Children[i] >= 0) {
+				NodeQueue.push(curr.Children[0]);
+			}
+		}
+	}
 
 	
 	// Shrink the resolution until the requested resolution is less than or equal to any available nodes.
-
-
-	// Split the node if a node of sufficient size is found but is too large for the requested resolution.
-
-
 	// Otherwise, disregard the light source. It won't produce a shadow map this frame.
+	NodeQueue = {};
 	return { 0, 0, 0, false };
 }
 
@@ -46,12 +71,37 @@ void FShadowAtlasQuadTree::Clear() {
 
 // Private helpers
 FAtlasRegion FShadowAtlasQuadTree::AllocateNode(int32 NodeIdx, uint32 RequestedSize) {
-	if (NodeIdx < 0) {
+	if (NodeIdx < 0 
+		|| NodeIdx >= Nodes.size() 
+		|| Nodes[NodeIdx].bOccupied) {
 		// Invalid Node index
 		return { 0, 0, 0, false };
 	}
 
+	Node node = Nodes[NodeIdx];
+	if (node.bSplit) {
+	    for (float SubIdx : node.Children) {
+			// Greedily allocate the first child node that can fit the requested size
+			FAtlasRegion AllocatedRegion = AllocateNode(SubIdx, RequestedSize);
+			if (AllocatedRegion.bValid) {
+				return AllocatedRegion;
+			}
+		}
 
+		return { 0, 0, 0, false };
+	} else {
+	    if (node.Resolution == RequestedSize) {
+			return { static_cast<uint32> (node.TopLeft.X), static_cast<uint32> (node.TopLeft.Y), static_cast<uint32>(node.Resolution), true};
+		} else {
+
+			// Try again after splitting
+		    if (Split(NodeIdx)) {
+			    return AllocateNode(NodeIdx, RequestedSize);
+			}
+		}
+	}
+
+	return { 0, 0, 0, false };
 }
 
 bool FShadowAtlasQuadTree::Split(int32 Idx) {
