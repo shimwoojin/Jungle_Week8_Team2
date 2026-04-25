@@ -25,6 +25,8 @@ void FFrameContext::SetViewportInfo(const FViewport* VP)
 	ViewportHeight   = static_cast<float>(VP->GetHeight());
 	ViewportRTV             = VP->GetRTV();
 	ViewportDSV             = VP->GetDSV();
+	ShadowAtlasDSV          = VP->GetShadowAtlasDSV();
+	ShadowAtlasSRV          = VP->GetShadowAtlasSRV();
 	SceneColorCopySRV       = VP->GetSceneColorCopySRV();
 	SceneColorCopyTexture   = VP->GetSceneColorCopyTexture();
 	ViewportRenderTexture   = VP->GetRTTexture();

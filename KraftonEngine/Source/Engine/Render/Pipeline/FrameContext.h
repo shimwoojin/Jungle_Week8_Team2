@@ -51,6 +51,10 @@ struct FFrameContext
 	ID3D11ShaderResourceView* DepthCopySRV         = nullptr;
 	ID3D11ShaderResourceView* StencilCopySRV       = nullptr;
 
+	// Shadow Atlas
+	ID3D11DepthStencilView* ShadowAtlasDSV			= nullptr;
+	ID3D11ShaderResourceView* ShadowAtlasSRV        = nullptr;
+
 	// GBuffer Normal RT — Opaque MRT[1] 출력, PostProcess에서 SRV로 읽기
 	ID3D11RenderTargetView*   NormalRTV             = nullptr;
 	ID3D11ShaderResourceView* NormalSRV             = nullptr;
@@ -108,6 +112,8 @@ struct FFrameContext
 		SceneColorCopySRV       = nullptr;
 		SceneColorCopyTexture   = nullptr;
 		ViewportRenderTexture   = nullptr;
+		ShadowAtlasDSV          = nullptr;
+		ShadowAtlasSRV          = nullptr;
 		DepthTexture            = nullptr;
 		DepthCopyTexture        = nullptr;
 		DepthCopySRV            = nullptr;
