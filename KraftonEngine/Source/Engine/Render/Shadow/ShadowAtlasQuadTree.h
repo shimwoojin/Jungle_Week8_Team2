@@ -41,6 +41,9 @@ public:
 	FAtlasRegion Add(FLightInfo& InLightInfo);
 
 	// Called every frame to reset the atlas.
+	void Reset();
+
+	// Hard clear including the root node
 	void Clear();
 
 private:
