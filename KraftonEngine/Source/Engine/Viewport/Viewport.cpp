@@ -176,6 +176,15 @@ bool FViewport::CreateResources()
 	hr = Device->CreateShaderResourceView(SceneColorCopyTexture, &SceneColorCopySRVDesc, &SceneColorCopySRV);
 	if (FAILED(hr)) return false;
 
+	// --- Shadow Atlas resources ---
+	D3D11_TEXTURE2D_DESC ShadowAtlasDesc = {};
+	ShadowAtlasDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	ShadowAtlasDesc.Width = 4096;
+	ShadowAtlasDesc.Height = 4096;
+	ShadowAtlasDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	ShadowAtlasDesc.SampleDesc = 1;
+
+
 	// ── GBuffer Normal RT (R16G16B16A16_FLOAT — 음수 지원) ──
 	D3D11_TEXTURE2D_DESC NormalDesc = {};
 	NormalDesc.Width = Width;

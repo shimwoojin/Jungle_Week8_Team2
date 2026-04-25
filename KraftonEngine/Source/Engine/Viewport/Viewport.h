@@ -40,6 +40,10 @@ public:
 	ID3D11DepthStencilView* GetDSV() const { return DSV; }
 	ID3D11Texture2D* GetDepthTexture() const { return DepthTexture; }
 
+	// Shadow Atlas Accessors
+	ID3D11DepthStencilView* GetShadowAtlasDSV() const { return ShadowAtlasDSV; }
+	ID3D11ShaderResourceView* GetShadowAtlasSRV() const { return ShadowAtlasSRV; }
+
 	// CopyResource 대상 — 패스 간 안전하게 Depth/Stencil 읽기용
 	ID3D11Texture2D* GetDepthCopyTexture() const { return DepthCopyTexture; }
 	ID3D11ShaderResourceView* GetDepthCopySRV() const { return DepthCopySRV; }
@@ -72,6 +76,11 @@ private:
 	// 뎁스/스텐실
 	ID3D11Texture2D* DepthTexture = nullptr;
 	ID3D11DepthStencilView* DSV = nullptr;
+
+	// Shadow Atlas
+	ID3D11Texture2D* ShadowAtlasTexture = nullptr;
+	ID3D11DepthStencilView* ShadowAtlasDSV = nullptr;
+	ID3D11ShaderResourceView* ShadowAtlasSRV = nullptr;
 
 	// CopyResource 대상 — DSV 전환 없이 안전하게 Depth/Stencil 읽기
 	ID3D11Texture2D* DepthCopyTexture = nullptr;
