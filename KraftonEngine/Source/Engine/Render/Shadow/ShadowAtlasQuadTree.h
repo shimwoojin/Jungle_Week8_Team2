@@ -51,7 +51,7 @@ private:
 	FAtlasRegion AllocateNode(int32 NodeIdx, uint32 RequestedSize);
 
 	// Greedily splits the quadtree to find the best fit for the new shadow map
-	void  Split(int32 Idx);
+	bool  Split(int32 Idx);
 
 	// Ranks the importance of the input light source based on its properties.
 	float EvaluateResolution(const FLightInfo& InLightInfo) const;

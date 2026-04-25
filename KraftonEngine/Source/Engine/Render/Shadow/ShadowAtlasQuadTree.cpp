@@ -54,8 +54,37 @@ FAtlasRegion FShadowAtlasQuadTree::AllocateNode(int32 NodeIdx, uint32 RequestedS
 
 }
 
-void FShadowAtlasQuadTree::Split(int32 Idx) {
+bool FShadowAtlasQuadTree::Split(int32 Idx) {
+	if (Idx < 0 || Idx <= Nodes.size()) return;
 
+	float HalfRes = Nodes[Idx].Resolution / 2.f;
+	if (HalfRes < MinShadowMapResolution) {
+		// Reached the minimum resolution. Should not split further.
+		return false;
+	}
+
+	FVector2 TL = Nodes[Idx].TopLeft;
+	for (int i = 0; i < 4; i++) {
+		Node NewNode = {};
+		NewNode.Resolution = HalfRes;
+
+		switch (i) {
+		case (0): // Top-Left
+			NewNode.TopLeft = TL;
+			break;
+		case (1): // Top-Right
+			NewNode.TopLeft = TL + FVector2(HalfRes, 0);
+			break;
+		case (2): // Bottom-Left
+			NewNode.TopLeft = TL + FVector2(0, HalfRes);
+			break;
+		case (3): // Bottom-Right
+			NewNode.TopLeft = TL + FVector2(HalfRes, HalfRes);
+			break;
+		}
+	}
+
+	return true;
 }
 
 float FShadowAtlasQuadTree::EvaluateResolution(const FLightInfo& InLightInfo) const {
