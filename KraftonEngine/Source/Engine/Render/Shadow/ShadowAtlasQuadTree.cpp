@@ -82,8 +82,10 @@ bool FShadowAtlasQuadTree::Split(int32 Idx) {
 			NewNode.TopLeft = TL + FVector2(HalfRes, HalfRes);
 			break;
 		}
+		Nodes.push_back(NewNode);
+		Nodes[Idx].Children[i] = Nodes.size() - 1;
 	}
-
+	Nodes[Idx].bSplit = true;
 	return true;
 }
 
