@@ -268,6 +268,9 @@ void FViewport::ReleaseResources()
 	if (NormalSRV) { NormalSRV->Release(); NormalSRV = nullptr; }
 	if (NormalRTV) { NormalRTV->Release(); NormalRTV = nullptr; }
 	if (NormalTexture) { NormalTexture->Release(); NormalTexture = nullptr; }
+	if (ShadowAtlasSRV) { ShadowAtlasSRV->Release(); ShadowAtlasSRV = nullptr; }
+	if (ShadowAtlasDSV) { ShadowAtlasDSV->Release(); ShadowAtlasDSV = nullptr; }
+	if (ShadowAtlasTexture) {ShadowAtlasTexture->Release(); ShadowAtlasTexture = nullptr; }
 	if (StencilCopySRV) { StencilCopySRV->Release(); StencilCopySRV = nullptr; }
 	if (DepthCopySRV) { DepthCopySRV->Release(); DepthCopySRV = nullptr; }
 	if (DepthCopyTexture) { DepthCopyTexture->Release(); DepthCopyTexture = nullptr; }
