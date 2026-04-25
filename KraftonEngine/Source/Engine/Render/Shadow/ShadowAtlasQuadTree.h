@@ -2,8 +2,6 @@
 #include "Math/Vector.h"
 #include "Core/ClassTypes.h"
 
-#include <queue>
-
 class UCameraComponent;
 
 // Exclusive to spotlights
@@ -58,7 +56,6 @@ private:
 
 
 private:
-	std::queue<int32> NodeQueue;	// Queue for breadth-first traversal of the quadtree
 	TArray<Node>	  Nodes;
 	
 	float AtlasSize				 = 4096.f;

@@ -20,52 +20,23 @@ void FShadowAtlasQuadTree::Init(float InAtlasSize, float InMinShadowMapResolutio
 }
 
 FAtlasRegion FShadowAtlasQuadTree::Add(FLightInfo& InLightInfo) {
-	// First check if there is a node of a sufficient size.
-	if (!Nodes.empty()) {
-		NodeQueue.push(0);  // Traverse from the root node
-	} else {
-	    // Function called before initialization. Should not allocate
-		return { 0, 0, 0, false };
-	}
+	if (Nodes.empty()) return { 0, 0, 0, false };
 
-	// Find the tightest resolution available that can fit the requested resolution for the new shadow map.
-	float BestResolution = 0.f;
-	float RequestedResolution = EvaluateResolution(InLightInfo);
-	while (!NodeQueue.empty()) {
-		Node curr = Nodes[NodeQueue.front()];
-		if (curr.bOccupied) {
-			NodeQueue.pop();
-			continue;
-		}
-
-		if (curr.Resolution >= RequestedResolution && curr.Resolution < BestResolution) {
-			BestResolution = RequestedResolution;
-		}
-
-		NodeQueue.pop();
-
-		for (uint8 i = 0; i < 4; i++) {
-			if (curr.Children[i] >= 0) {
-				NodeQueue.push(curr.Children[0]);
-			}
-		}
-	}
-
-	
-	// Shrink the resolution until the requested resolution is less than or equal to any available nodes.
-	// Otherwise, disregard the light source. It won't produce a shadow map this frame.
-	NodeQueue = {};
-	return { 0, 0, 0, false };
+	uint32 RequestedSize = static_cast<uint32>(EvaluateResolution(InLightInfo));
+	return AllocateNode(0, RequestedSize);
 }
 
 void FShadowAtlasQuadTree::Reset() {
-	NodeQueue = {};
-	if (!Nodes.empty())
+	if (!Nodes.empty()) {
 		Nodes.resize(1);
+		Node& Root = Nodes[0];
+		Root.bOccupied = false;
+		Root.bSplit = false;
+		Root.Children[0] = Root.Children[1] = Root.Children[2] = Root.Children[3] = -1;
+	}
 }
 
 void FShadowAtlasQuadTree::Clear() {
-	NodeQueue = {};
 	Nodes.clear();
 }
 
@@ -80,7 +51,7 @@ FAtlasRegion FShadowAtlasQuadTree::AllocateNode(int32 NodeIdx, uint32 RequestedS
 
 	Node node = Nodes[NodeIdx];
 	if (node.bSplit) {
-	    for (float SubIdx : node.Children) {
+	    for (int32 SubIdx : node.Children) {
 			// Greedily allocate the first child node that can fit the requested size
 			FAtlasRegion AllocatedRegion = AllocateNode(SubIdx, RequestedSize);
 			if (AllocatedRegion.bValid) {
@@ -91,6 +62,7 @@ FAtlasRegion FShadowAtlasQuadTree::AllocateNode(int32 NodeIdx, uint32 RequestedS
 		return { 0, 0, 0, false };
 	} else {
 	    if (node.Resolution == RequestedSize) {
+			Nodes[NodeIdx].bOccupied = true;
 			return { static_cast<uint32> (node.TopLeft.X), static_cast<uint32> (node.TopLeft.Y), static_cast<uint32>(node.Resolution), true};
 		} else {
 
@@ -105,7 +77,7 @@ FAtlasRegion FShadowAtlasQuadTree::AllocateNode(int32 NodeIdx, uint32 RequestedS
 }
 
 bool FShadowAtlasQuadTree::Split(int32 Idx) {
-	if (Idx < 0 || Idx <= Nodes.size()) return;
+if (Idx < 0 || Idx >= (int32)Nodes.size()) return false;
 
 	float HalfRes = Nodes[Idx].Resolution / 2.f;
 	if (HalfRes < MinShadowMapResolution) {
