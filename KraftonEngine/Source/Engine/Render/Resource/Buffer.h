@@ -3,6 +3,7 @@
 #include "Render/Types/RenderTypes.h"
 #include "Core/CoreTypes.h"
 #include "Render/Types/VertexTypes.h"
+#include "Render/Common/ComPtr.h"
 
 class FVertexBuffer
 {
@@ -158,6 +159,25 @@ public:
 private:
 	ID3D11Buffer* Buffer = nullptr;
 	uint32 MaxCount = 0;
+};
+
+class FStructuredBuffer
+{
+public:
+    void Create(ID3D11Device* InDevice, uint32 InElementSize, uint32 InMaxElements, bool bEnableUAV = false);
+	void Update(ID3D11DeviceContext* InDeviceContext, const void* InData, uint32 InElementCount);
+	void Release();
+
+	ID3D11ShaderResourceView* GetSRV() const;
+    ID3D11UnorderedAccessView* GetUAV() const;
+    uint32 GetCount() const { return Count; }
+
+private:
+	TComPtr<ID3D11Buffer>			  Buffer;
+	TComPtr<ID3D11ShaderResourceView> SRV;
+    TComPtr<ID3D11UnorderedAccessView> UAV;
+	uint32							  Count = 0;
+	uint32							  ElementSize = 0;
 };
 
 // ============================================================

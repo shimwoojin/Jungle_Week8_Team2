@@ -287,8 +287,8 @@ void FShadowMapPass::RenderDirectionalShadows(const FPassContext& Ctx, FShadowMa
 void FShadowMapPass::RenderSpotShadows(const FPassContext& Ctx, FShadowMapResources& Res)
 {
 	const FSceneEnvironment& Env = Ctx.Scene->GetEnvironment();
-	const uint32 NumSpots = Env.GetNumSpotLights();
-	if (NumSpots == 0) return;
+	const uint32 NumSpotlights = Env.GetNumSpotLights();
+	if (NumSpotlights == 0) return;
 
 	// TODO: 팀원 B 구현
 	// 1. shadow-casting spot lights 카운트 → EnsureSpotAtlas 호출
@@ -302,9 +302,9 @@ void FShadowMapPass::RenderSpotShadows(const FPassContext& Ctx, FShadowMapResour
 	// 4. Upload SpotShadowDataGPU → Res.SpotShadowDataBuffer
 	// 5. ShadowCBCache.NumShadowSpotLights = count
 
-	auto Frame = Ctx.Frame;
-	uint32 NumSpotlights = Env.GetNumSpotLights();
-	float FOVy = 2.0f * atanf(1.0f / Frame.Proj.M[1][1]);
+	auto& Frame = Ctx.Frame;
+	float FOVy  = 2.0f * atanf(1.0f / Frame.Proj.M[1][1]);
+	TArray<FSpotShadowDataGPU> SpotShadowDatas;
 
 	for (uint32 i = 0; i < NumSpotlights; i++) {
 		FSpotLightParams SpotInfo = Env.GetSpotLight(i);
@@ -317,19 +317,22 @@ void FShadowMapPass::RenderSpotShadows(const FPassContext& Ctx, FShadowMapResour
 		Ctx.Device.GetDeviceContext()->OMSetRenderTargets(0, nullptr, Res.SpotAtlasDSVs[i]);
 		
 		DrawShadowCasters(Ctx, Frustum);
-		FVector4 AtlasScaleBias = FVector4(region.X, region.Y, region.Size, region.Size);
 		FSpotShadowDataGPU SpotShadowData = {};
-		SpotShadowData.ViewProj = VP.ViewProj;
-		SpotShadowData.UOffset = region.X;
-		SpotShadowData.VOffset = region.Y;
-		SpotShadowData.Resolution = region.Size;
-		SpotShadowData.PageIndex = 0; // Using one atlas page for now
+		SpotShadowData.ViewProj			  = VP.ViewProj;
+		SpotShadowData.UOffset			  = region.X;
+		SpotShadowData.VOffset			  = region.Y;
+		SpotShadowData.Resolution		  = region.Size;
+		SpotShadowData.PageIndex		  = i;
+		SpotShadowDatas.push_back(SpotShadowData);
 	}
+
+	D3D11_SUBRESOURCE_DATA Data = {};
 
 	D3D11_BUFFER_DESC desc = {};
 	desc.ByteWidth  = sizeof(FSpotShadowDataGPU);
 	desc.Usage		= D3D11_USAGE_DEFAULT;
-	desc.BindFlags  = D3D11_BIND_CONSTANT_BUFFER;
+	desc.BindFlags  = D3D11_BIND_SHADER_RESOURCE;
+	desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 
 	Ctx.Device.GetDevice()->CreateBuffer(&desc, nullptr, &Res.SpotShadowDataBuffer);
 	ShadowCBCache.NumShadowSpotLights = NumSpotlights;

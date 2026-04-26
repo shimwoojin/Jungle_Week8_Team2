@@ -534,6 +534,7 @@
     <ClInclude Include="Source\Engine\Render\Command\DrawCommand.h" />
     <ClInclude Include="Source\Engine\Render\Command\DrawCommandBuilder.h" />
     <ClInclude Include="Source\Engine\Render\Command\DrawCommandList.h" />
+    <ClInclude Include="Source\Engine\Render\Common\ComPtr.h" />
     <ClInclude Include="Source\Engine\Render\Culling\ClusteredLightCuller.h" />
     <ClInclude Include="Source\Engine\Render\Culling\GPUOcclusionCulling.h" />
     <ClInclude Include="Source\Engine\Render\Culling\TileBasedLightCulling.h" />
