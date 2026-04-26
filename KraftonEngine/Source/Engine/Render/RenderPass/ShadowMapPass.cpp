@@ -109,9 +109,6 @@ void FShadowMapPass::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, ui
 	Resources.SpotAtlasPageCount = 0;
 	Resources.SpotAtlasResolution = Resolution;
 
-	// Fetch Spotlight FLightInfos
-	
-
 	// Create atlas texture
 	D3D11_TEXTURE2D_DESC SpotAtlasDesc = {};
 	SpotAtlasDesc.Format = DXGI_FORMAT_D32_FLOAT;
@@ -125,13 +122,17 @@ void FShadowMapPass::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, ui
 	HRESULT hr = Device->CreateTexture2D(&SpotAtlasDesc, nullptr, &Resources.SpotAtlasTexture);
 	if (FAILED(hr)) return;
 
-	// Create atlas dsv for each spotlights
-	D3D11_DEPTH_STENCIL_VIEW_DESC SpotDSVDesc = {};
-	SpotDSVDesc.Format = DXGI_FORMAT_D32_FLOAT;
-	SpotDSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DARRAY;
-	SpotDSVDesc.Texture2DArray.ArraySize = 1;
-	SpotDSVDesc.Texture2DArray.MipSlice = 0;
-	SpotDSVDesc.Texture2DArray.FirstArraySlice = 0;
+	// Create atlas dsv for each spotlights. PageCount = Number of spotlights to compute
+	for (uint32 i = 0; i < PageCount; i++) {
+		D3D11_DEPTH_STENCIL_VIEW_DESC SpotDSVDesc = {};
+		SpotDSVDesc.Format = DXGI_FORMAT_D32_FLOAT;
+		SpotDSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DARRAY;
+		SpotDSVDesc.Texture2DArray.ArraySize = 1;
+		SpotDSVDesc.Texture2DArray.MipSlice = 0;
+		SpotDSVDesc.Texture2DArray.FirstArraySlice = i;
+
+		Device->CreateDepthStencilView(Resources.SpotAtlasTexture, &SpotDSVDesc, &Resources.SpotAtlasDSVs[i]);
+	}
 
 	// Create atlas srv, one for the entire texture array
 	D3D11_SHADER_RESOURCE_VIEW_DESC SpotAtlasSRVDesc = {};
