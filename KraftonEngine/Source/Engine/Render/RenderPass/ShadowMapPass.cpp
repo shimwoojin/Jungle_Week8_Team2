@@ -100,14 +100,10 @@ void FShadowMapPass::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, ui
 	// release old
 	if (Resources.SpotAtlasSRV) { Resources.SpotAtlasSRV->Release(); Resources.SpotAtlasSRV = nullptr; }
 	if (Resources.SpotAtlasDSVs) {
-		for (uint32 i = 0; i < Resources.SpotAtlasPageCount; ++i) {
-			if (Resources.SpotAtlasDSVs[i]) { 
-				Resources.SpotAtlasDSVs[i]->Release();
-				Resources.SpotAtlasDSVs[i] = nullptr;
-			}
-		}
-		//delete[] Resources.SpotAtlasDSVs;
-		//Resources.SpotAtlasDSVs = nullptr;
+		for (uint32 i = 0; i < Resources.SpotAtlasPageCount; ++i)
+			if (Resources.SpotAtlasDSVs[i]) Resources.SpotAtlasDSVs[i]->Release();
+		delete[] Resources.SpotAtlasDSVs;
+		Resources.SpotAtlasDSVs = nullptr;
 	}
 	if (Resources.SpotAtlasTexture) { Resources.SpotAtlasTexture->Release(); Resources.SpotAtlasTexture = nullptr; }
 	Resources.SpotAtlasPageCount = PageCount;
@@ -127,6 +123,7 @@ void FShadowMapPass::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, ui
 	if (FAILED(hr)) return;
 
 	// Create atlas dsv for each spotlights. PageCount = Number of spotlights to compute
+	Resources.SpotAtlasDSVs = new ID3D11DepthStencilView * [PageCount]();
 	for (uint32 i = 0; i < PageCount; i++) {
 		D3D11_DEPTH_STENCIL_VIEW_DESC SpotDSVDesc = {};
 		SpotDSVDesc.Format = DXGI_FORMAT_D32_FLOAT;
