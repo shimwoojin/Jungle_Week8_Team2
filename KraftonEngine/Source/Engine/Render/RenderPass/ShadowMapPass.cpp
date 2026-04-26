@@ -319,22 +319,22 @@ void FShadowMapPass::RenderSpotShadows(const FPassContext& Ctx, FShadowMapResour
 		DrawShadowCasters(Ctx, Frustum);
 		FSpotShadowDataGPU SpotShadowData = {};
 		SpotShadowData.ViewProj			  = VP.ViewProj;
-		SpotShadowData.UOffset			  = region.X;
-		SpotShadowData.VOffset			  = region.Y;
+		SpotShadowData.UOffset			  = region.X / SpotLightAtlasTree.GetAtlasSize();
+		SpotShadowData.VOffset			  = region.Y / SpotLightAtlasTree.GetAtlasSize();
 		SpotShadowData.Resolution		  = region.Size;
 		SpotShadowData.PageIndex		  = i;
 		SpotShadowDatas.push_back(SpotShadowData);
 	}
 
-	D3D11_SUBRESOURCE_DATA Data = {};
+	//D3D11_SUBRESOURCE_DATA Data = {};
 
-	D3D11_BUFFER_DESC desc = {};
-	desc.ByteWidth  = sizeof(FSpotShadowDataGPU);
-	desc.Usage		= D3D11_USAGE_DEFAULT;
-	desc.BindFlags  = D3D11_BIND_SHADER_RESOURCE;
-	desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	//D3D11_BUFFER_DESC desc = {};
+	//desc.ByteWidth  = sizeof(FSpotShadowDataGPU);
+	//desc.Usage		= D3D11_USAGE_DEFAULT;
+	//desc.BindFlags  = D3D11_BIND_SHADER_RESOURCE;
+	//desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 
-	Ctx.Device.GetDevice()->CreateBuffer(&desc, nullptr, &Res.SpotShadowDataBuffer);
+	//Ctx.Device.GetDevice()->CreateBuffer(&desc, nullptr, &Res.SpotShadowDataBuffer);
 	ShadowCBCache.NumShadowSpotLights = NumSpotlights;
 }
 

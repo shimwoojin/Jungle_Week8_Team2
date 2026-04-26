@@ -41,6 +41,8 @@ private:
 	void RenderSpotShadows(const FPassContext& Ctx, FShadowMapResources& Res);
 	void RenderPointShadows(const FPassContext& Ctx, FShadowMapResources& Res);
 
+	void EnsureSpotShadowData();
+
 	// ── 공용: frustum culling + depth-only draw ──
 	// ViewProj로 frustum을 만들고, 해당 frustum 안의 프록시를 depth-only 렌더링.
 	// DSV/RTV, Viewport는 호출자가 이미 바인딩한 상태에서 호출.
