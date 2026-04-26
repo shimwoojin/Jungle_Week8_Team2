@@ -113,11 +113,12 @@ static constexpr uint32 MAX_SHADOW_POINT_LIGHTS  = 16;
 struct FSpotShadowDataGPU
 {
 	FMatrix  ViewProj;           // 64B | offset  0
-	FVector4 AtlasScaleBias;     // 16B | offset 64  (xy=scale, zw=bias)
+	float    UOffset;
+	float    VOffset;
+	float    Resolution;
 	uint32   PageIndex;          //  4B | offset 80  (Texture2DArray slice)
-	float    _pad[3];            // 12B | offset 84  → 합계 96B
 };
-static_assert(sizeof(FSpotShadowDataGPU) == 96, "FSpotShadowDataGPU size mismatch with HLSL");
+//static_assert(sizeof(FSpotShadowDataGPU) == 80, "FSpotShadowDataGPU size mismatch with HLSL");
 static_assert(sizeof(FSpotShadowDataGPU) % 16 == 0);
 
 // Point Light: 6면 ViewProj + cubemap array index

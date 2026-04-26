@@ -123,10 +123,11 @@ StructuredBuffer<uint2> g_ClusterLightGrid : register(t12);
 struct FSpotShadowData
 {
     float4x4 ViewProj;          // 64B
-    float4   AtlasScaleBias;    // 16B  (xy=scale, zw=bias)
+    float    UOffset;
+    float    VOffset;
+    float    Resolution;
     uint     PageIndex;         //  4B  (Texture2DArray slice)
-    float3   _pad;              // 12B  → 합계 96B
-};
+}; // 80B
 
 // Point Light: 6면 ViewProj + near/far + cubemap array index  (416B, 32B aligned)
 struct FPointShadowData
