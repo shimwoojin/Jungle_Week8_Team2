@@ -156,8 +156,57 @@ void FShadowMapResources::EnsureCSM(ID3D11Device* Device, uint32 Resolution)
 
 void FShadowMapResources::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, uint32 PageCount)
 {
-	// TODO: Spot Atlas Texture2DArray 생성 (page 단위)
-	(void)Device; (void)Resolution; (void)PageCount;
+	// No update needed if the general context remains the same
+	if (SpotAtlasResolution == Resolution && SpotAtlasPageCount == PageCount && SpotAtlasTexture) return;
+
+	// release old
+	if (SpotAtlasSRV) { SpotAtlasSRV->Release(); SpotAtlasSRV = nullptr; }
+	if (SpotAtlasDSVs) {
+		for (uint32 i = 0; i < SpotAtlasPageCount; ++i)
+			if (SpotAtlasDSVs[i]) SpotAtlasDSVs[i]->Release();
+		delete[] SpotAtlasDSVs;
+		SpotAtlasDSVs = nullptr;
+	}
+	if (SpotAtlasTexture) { SpotAtlasTexture->Release(); SpotAtlasTexture = nullptr; }
+	SpotAtlasPageCount = PageCount;
+	SpotAtlasResolution = Resolution;
+
+	// Create atlas texture
+	D3D11_TEXTURE2D_DESC SpotAtlasDesc = {};
+	SpotAtlasDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	SpotAtlasDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	SpotAtlasDesc.ArraySize = PageCount;
+	SpotAtlasDesc.MipLevels = 1;
+	SpotAtlasDesc.Width = Resolution; SpotAtlasDesc.Height = Resolution;
+	SpotAtlasDesc.SampleDesc.Count = 1;
+	SpotAtlasDesc.Usage = D3D11_USAGE_DEFAULT;
+
+	HRESULT hr = Device->CreateTexture2D(&SpotAtlasDesc, nullptr, &SpotAtlasTexture);
+	if (FAILED(hr)) return;
+
+	// Create atlas dsv for each spotlights. PageCount = Number of spotlights to compute
+	SpotAtlasDSVs = new ID3D11DepthStencilView * [PageCount]();
+	for (uint32 i = 0; i < PageCount; i++) {
+		D3D11_DEPTH_STENCIL_VIEW_DESC SpotDSVDesc = {};
+		SpotDSVDesc.Format = DXGI_FORMAT_D32_FLOAT;
+		SpotDSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DARRAY;
+		SpotDSVDesc.Texture2DArray.ArraySize = 1;
+		SpotDSVDesc.Texture2DArray.MipSlice = 0;
+		SpotDSVDesc.Texture2DArray.FirstArraySlice = i;
+
+		Device->CreateDepthStencilView(SpotAtlasTexture, &SpotDSVDesc, &SpotAtlasDSVs[i]);
+	}
+
+	// Create atlas srv, one for the entire texture array
+	D3D11_SHADER_RESOURCE_VIEW_DESC SpotAtlasSRVDesc = {};
+	SpotAtlasSRVDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	SpotAtlasSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
+	SpotAtlasSRVDesc.Texture2DArray.ArraySize = PageCount;
+	SpotAtlasSRVDesc.Texture2DArray.FirstArraySlice = 0;
+	SpotAtlasSRVDesc.Texture2DArray.MipLevels = 1;
+	SpotAtlasSRVDesc.Texture2DArray.MostDetailedMip = 0;
+
+	Device->CreateShaderResourceView(SpotAtlasTexture, &SpotAtlasSRVDesc, &SpotAtlasSRV);
 }
 
 void FShadowMapResources::EnsurePointCube(ID3D11Device* Device, uint32 Resolution, uint32 CubeCount)

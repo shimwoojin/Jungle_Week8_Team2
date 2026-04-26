@@ -1,4 +1,4 @@
-#include "ShadowMapPass.h"
+﻿#include "ShadowMapPass.h"
 #include "RenderPassRegistry.h"
 
 #include "Render/Device/D3DDevice.h"
@@ -26,7 +26,7 @@ REGISTER_RENDER_PASS(FShadowMapPass)
 
 FShadowMapPass::FShadowMapPass()
 {
-	SpotLightAtlas.Init(4096.f, 64.f);
+	SpotLightAtlasTree.Init(4096.f, 64.f);
 	PassType = ERenderPass::ShadowMap;
 }
 
@@ -166,6 +166,9 @@ void FShadowMapPass::EnsureResources(const FPassContext& Ctx)
 	// Spot Atlas — shadow-casting spot 수 기반 page 수 결정
 	// TODO: 실제 shadow-casting spot 수 카운트 후 page 수 계산
 	// Res.EnsureSpotAtlas(Dev, Resolution, PageCount);
+	SpotLightAtlasTree.Reset();
+	uint32 NumSpotlights = Env.GetNumSpotLights();
+	Res.EnsureSpotAtlas(Dev, 4096.f, NumSpotlights);
 
 	// Point Cube — shadow-casting point 수 기반
 	// TODO: 실제 shadow-casting point 수 카운트 후 cube 수 계산
@@ -295,9 +298,41 @@ void FShadowMapPass::RenderSpotShadows(const FPassContext& Ctx, FShadowMapResour
 	//      Set viewport to atlas rect on the correct page
 	//      DC->OMSetRenderTargets(0, nullptr, Res.SpotAtlasDSVs[page])  // VSM: RTV + DSV
 	//      DrawShadowCasters(Ctx, spotFrustum)
-	//      SpotShadowDataGPU[i] = { ViewProj, atlasScaleBias, pageIndex }
+	//      SpotShadowDataGPU[i] = { ViewProj, atlasinfo, pageIndex }
 	// 4. Upload SpotShadowDataGPU → Res.SpotShadowDataBuffer
 	// 5. ShadowCBCache.NumShadowSpotLights = count
+
+	auto Frame = Ctx.Frame;
+	uint32 NumSpotlights = Env.GetNumSpotLights();
+	float FOVy = 2.0f * atanf(1.0f / Frame.Proj.M[1][1]);
+
+	for (uint32 i = 0; i < NumSpotlights; i++) {
+		FSpotLightParams SpotInfo = Env.GetSpotLight(i);
+		FAtlasRegion region = SpotLightAtlasTree.Add(SpotInfo.ToLightInfo(), Frame.CameraPosition, Frame.CameraForward, FOVy, Frame.ViewportHeight);
+
+		if (!region.bValid) continue;
+
+		auto VP		 = FLightFrustumUtils::BuildSpotLightViewProj(SpotInfo);
+		auto Frustum = FLightFrustumUtils::BuildSpotLightFrustum(SpotInfo);
+		Ctx.Device.GetDeviceContext()->OMSetRenderTargets(0, nullptr, Res.SpotAtlasDSVs[i]);
+		
+		DrawShadowCasters(Ctx, Frustum);
+		FVector4 AtlasScaleBias = FVector4(region.X, region.Y, region.Size, region.Size);
+		FSpotShadowDataGPU SpotShadowData = {};
+		SpotShadowData.ViewProj = VP.ViewProj;
+		SpotShadowData.UOffset = region.X;
+		SpotShadowData.VOffset = region.Y;
+		SpotShadowData.Resolution = region.Size;
+		SpotShadowData.PageIndex = 0; // Using one atlas page for now
+	}
+
+	D3D11_BUFFER_DESC desc = {};
+	desc.ByteWidth  = sizeof(FSpotShadowDataGPU);
+	desc.Usage		= D3D11_USAGE_DEFAULT;
+	desc.BindFlags  = D3D11_BIND_CONSTANT_BUFFER;
+
+	Ctx.Device.GetDevice()->CreateBuffer(&desc, nullptr, &Res.SpotShadowDataBuffer);
+	ShadowCBCache.NumShadowSpotLights = NumSpotlights;
 }
 
 // ============================================================

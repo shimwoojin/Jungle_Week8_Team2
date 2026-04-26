@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Render/RenderPass/RenderPassBase.h"
 #include "Render/Resource/Buffer.h"
@@ -61,5 +61,5 @@ private:
 	EShadowFilterMode CurrentFilterMode = EShadowFilterMode::Hard;
 	FShadowCBData     ShadowCBCache = {};
 
-	FShadowAtlasQuadTree SpotLightAtlas;
+	FShadowAtlasQuadTree SpotLightAtlasTree;
 };
