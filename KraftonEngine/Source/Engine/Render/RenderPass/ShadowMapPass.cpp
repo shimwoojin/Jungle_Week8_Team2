@@ -94,8 +94,8 @@ void FShadowMapPass::EnsureCSM(ID3D11Device* Device, uint32 Resolution)
 
 void FShadowMapPass::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, uint32 PageCount)
 {
-	// TODO: Spot Atlas Texture2DArray 생성 (page 단위)
-	(void)Device; (void)Resolution; (void)PageCount;
+	// No update needed if the general context remains the same
+	if (Resources.SpotAtlasResolution == Resolution && Resources.SpotAtlasPageCount == PageCount && Resources.SpotAtlasTexture) return;
 
 	// release old
 	if (Resources.SpotAtlasSRV) { Resources.SpotAtlasSRV->Release(); Resources.SpotAtlasSRV = nullptr; }
@@ -106,14 +106,14 @@ void FShadowMapPass::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, ui
 		Resources.SpotAtlasDSVs = nullptr;
 	}
 	if (Resources.SpotAtlasTexture) { Resources.SpotAtlasTexture->Release(); Resources.SpotAtlasTexture = nullptr; }
-	Resources.SpotAtlasPageCount = 0;
+	Resources.SpotAtlasPageCount = PageCount;
 	Resources.SpotAtlasResolution = Resolution;
 
 	// Create atlas texture
 	D3D11_TEXTURE2D_DESC SpotAtlasDesc = {};
-	SpotAtlasDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	SpotAtlasDesc.Format = DXGI_FORMAT_R32_TYPELESS;
 	SpotAtlasDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
-	SpotAtlasDesc.ArraySize = 1;	// Try single paged atlas first
+	SpotAtlasDesc.ArraySize = PageCount;
 	SpotAtlasDesc.MipLevels = 1;
 	SpotAtlasDesc.Width = Resolution; SpotAtlasDesc.Height = Resolution;
 	SpotAtlasDesc.SampleDesc.Count = 1;
@@ -125,7 +125,7 @@ void FShadowMapPass::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, ui
 	// Create atlas dsv for each spotlights. PageCount = Number of spotlights to compute
 	for (uint32 i = 0; i < PageCount; i++) {
 		D3D11_DEPTH_STENCIL_VIEW_DESC SpotDSVDesc = {};
-		SpotDSVDesc.Format = DXGI_FORMAT_D32_FLOAT;
+		SpotDSVDesc.Format = DXGI_FORMAT_R32_TYPELESS;
 		SpotDSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DARRAY;
 		SpotDSVDesc.Texture2DArray.ArraySize = 1;
 		SpotDSVDesc.Texture2DArray.MipSlice = 0;
@@ -136,8 +136,8 @@ void FShadowMapPass::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, ui
 
 	// Create atlas srv, one for the entire texture array
 	D3D11_SHADER_RESOURCE_VIEW_DESC SpotAtlasSRVDesc = {};
-	SpotAtlasSRVDesc.Format = DXGI_FORMAT_D32_FLOAT;
-	SpotAtlasSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	SpotAtlasSRVDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	SpotAtlasSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
 	SpotAtlasSRVDesc.Texture2DArray.ArraySize = 1;
 	SpotAtlasSRVDesc.Texture2DArray.FirstArraySlice = 0;
 	SpotAtlasSRVDesc.Texture2DArray.MipLevels = 1;
