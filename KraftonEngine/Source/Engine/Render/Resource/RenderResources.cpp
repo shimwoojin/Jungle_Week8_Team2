@@ -75,6 +75,7 @@ void FSystemResources::Create(ID3D11Device* InDevice)
 {
 	FrameBuffer.Create(InDevice, sizeof(FFrameConstants));
 	LightingConstantBuffer.Create(InDevice, sizeof(FLightingCBData));
+	ShadowConstantBuffer.Create(InDevice, sizeof(FShadowCBData));
 	ForwardLights.Create(InDevice, 32);
 
 	RasterizerStateManager.Create(InDevice);
@@ -85,8 +86,139 @@ void FSystemResources::Create(ID3D11Device* InDevice)
 	FMaterialManager::Get().Initialize(InDevice);
 }
 
+void FShadowMapResources::EnsureCSM(ID3D11Device* Device, uint32 Resolution)
+{
+	if (CSMResolution == Resolution && CSMTexture) return;
+
+	// 기존 CSM 리소스 해제
+	if (CSMSRV) { CSMSRV->Release(); CSMSRV = nullptr; }
+	for (uint32 i = 0; i < MAX_SHADOW_CASCADES; ++i)
+	{
+		if (CSMSliceSRV[i]) { CSMSliceSRV[i]->Release(); CSMSliceSRV[i] = nullptr; }
+		if (CSMDSV[i]) { CSMDSV[i]->Release(); CSMDSV[i] = nullptr; }
+	}
+	if (CSMTexture) { CSMTexture->Release(); CSMTexture = nullptr; }
+
+	CSMResolution = Resolution;
+
+	// Texture2DArray: ArraySize = MAX_SHADOW_CASCADES, R32_TYPELESS
+	D3D11_TEXTURE2D_DESC TexDesc = {};
+	TexDesc.Width  = Resolution;
+	TexDesc.Height = Resolution;
+	TexDesc.MipLevels = 1;
+	TexDesc.ArraySize = MAX_SHADOW_CASCADES;
+	TexDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	TexDesc.SampleDesc.Count = 1;
+	TexDesc.Usage  = D3D11_USAGE_DEFAULT;
+	TexDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+
+	HRESULT hr = Device->CreateTexture2D(&TexDesc, nullptr, &CSMTexture);
+	if (FAILED(hr)) return;
+
+	// Per-cascade DSV (Texture2DArray slice)
+	for (uint32 i = 0; i < MAX_SHADOW_CASCADES; ++i)
+	{
+		D3D11_DEPTH_STENCIL_VIEW_DESC DSVDesc = {};
+		DSVDesc.Format = DXGI_FORMAT_D32_FLOAT;
+		DSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DARRAY;
+		DSVDesc.Texture2DArray.MipSlice = 0;
+		DSVDesc.Texture2DArray.FirstArraySlice = i;
+		DSVDesc.Texture2DArray.ArraySize = 1;
+
+		Device->CreateDepthStencilView(CSMTexture, &DSVDesc, &CSMDSV[i]);
+	}
+
+	// SRV — 전체 array (셰이더용)
+	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+	SRVDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
+	SRVDesc.Texture2DArray.MipLevels = 1;
+	SRVDesc.Texture2DArray.MostDetailedMip = 0;
+	SRVDesc.Texture2DArray.FirstArraySlice = 0;
+	SRVDesc.Texture2DArray.ArraySize = MAX_SHADOW_CASCADES;
+
+	Device->CreateShaderResourceView(CSMTexture, &SRVDesc, &CSMSRV);
+
+	// Per-cascade slice SRV (single slice — ImGui 디버그용)
+	for (uint32 i = 0; i < MAX_SHADOW_CASCADES; ++i)
+	{
+		D3D11_SHADER_RESOURCE_VIEW_DESC SliceSRVDesc = {};
+		SliceSRVDesc.Format = DXGI_FORMAT_R32_FLOAT;
+		SliceSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
+		SliceSRVDesc.Texture2DArray.MipLevels = 1;
+		SliceSRVDesc.Texture2DArray.MostDetailedMip = 0;
+		SliceSRVDesc.Texture2DArray.FirstArraySlice = i;
+		SliceSRVDesc.Texture2DArray.ArraySize = 1;
+
+		Device->CreateShaderResourceView(CSMTexture, &SliceSRVDesc, &CSMSliceSRV[i]);
+	}
+}
+
+void FShadowMapResources::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, uint32 PageCount)
+{
+	// TODO: Spot Atlas Texture2DArray 생성 (page 단위)
+	(void)Device; (void)Resolution; (void)PageCount;
+}
+
+void FShadowMapResources::EnsurePointCube(ID3D11Device* Device, uint32 Resolution, uint32 CubeCount)
+{
+	// TODO: Point CubeMap TextureCubeArray 생성
+	(void)Device; (void)Resolution; (void)CubeCount;
+}
+
+void FShadowMapResources::Release()
+{
+	// CSM
+	if (CSMSRV) { CSMSRV->Release(); CSMSRV = nullptr; }
+	for (uint32 i = 0; i < MAX_SHADOW_CASCADES; ++i)
+	{
+		if (CSMSliceSRV[i]) { CSMSliceSRV[i]->Release(); CSMSliceSRV[i] = nullptr; }
+		if (CSMDSV[i]) { CSMDSV[i]->Release(); CSMDSV[i] = nullptr; }
+	}
+	if (CSMTexture) { CSMTexture->Release(); CSMTexture = nullptr; }
+
+	// Spot Atlas
+	if (SpotAtlasSRV) { SpotAtlasSRV->Release(); SpotAtlasSRV = nullptr; }
+	if (SpotAtlasDSVs)
+	{
+		for (uint32 i = 0; i < SpotAtlasPageCount; ++i)
+		{
+			if (SpotAtlasDSVs[i]) SpotAtlasDSVs[i]->Release();
+		}
+		delete[] SpotAtlasDSVs;
+		SpotAtlasDSVs = nullptr;
+	}
+	if (SpotAtlasTexture) { SpotAtlasTexture->Release(); SpotAtlasTexture = nullptr; }
+	SpotAtlasPageCount = 0;
+
+	// Point Cube
+	if (PointCubeSRV) { PointCubeSRV->Release(); PointCubeSRV = nullptr; }
+	if (PointCubeDSVs)
+	{
+		for (uint32 i = 0; i < PointCubeCount * 6; ++i)
+		{
+			if (PointCubeDSVs[i]) PointCubeDSVs[i]->Release();
+		}
+		delete[] PointCubeDSVs;
+		PointCubeDSVs = nullptr;
+	}
+	if (PointCubeTexture) { PointCubeTexture->Release(); PointCubeTexture = nullptr; }
+	PointCubeCount = 0;
+
+	// StructuredBuffers
+	if (SpotShadowDataSRV)    { SpotShadowDataSRV->Release();    SpotShadowDataSRV = nullptr; }
+	if (SpotShadowDataBuffer) { SpotShadowDataBuffer->Release(); SpotShadowDataBuffer = nullptr; }
+	SpotShadowDataCapacity = 0;
+
+	if (PointShadowDataSRV)    { PointShadowDataSRV->Release();    PointShadowDataSRV = nullptr; }
+	if (PointShadowDataBuffer) { PointShadowDataBuffer->Release(); PointShadowDataBuffer = nullptr; }
+	PointShadowDataCapacity = 0;
+}
+
 void FSystemResources::Release()
 {
+	ShadowResources.Release();
+
 	SamplerStateManager.Release();
 	BlendStateManager.Release();
 	DepthStencilStateManager.Release();
@@ -94,6 +226,7 @@ void FSystemResources::Release()
 
 	FrameBuffer.Release();
 	LightingConstantBuffer.Release();
+	ShadowConstantBuffer.Release();
 	ForwardLights.Release();
 	TileCullingResource.Release();
 }
@@ -249,12 +382,13 @@ void FSystemResources::ResetRenderStateCache()
 void FSystemResources::UnbindSystemTextures(FD3DDevice& Device)
 {
 	ID3D11DeviceContext* Ctx = Device.GetDeviceContext();
-	ID3D11ShaderResourceView* nullSRV = nullptr;
-	Ctx->PSSetShaderResources(ESystemTexSlot::SceneDepth, 1, &nullSRV);
-	Ctx->PSSetShaderResources(ESystemTexSlot::SceneColor, 1, &nullSRV);
-	Ctx->PSSetShaderResources(ESystemTexSlot::GBufferNormal, 1, &nullSRV);
-	Ctx->PSSetShaderResources(ESystemTexSlot::Stencil, 1, &nullSRV);
-	Ctx->PSSetShaderResources(ESystemTexSlot::CullingHeatmap, 1, &nullSRV);
+	ID3D11ShaderResourceView* nullSRVs[5] = {};
+
+	// t16~t20: Scene Depth/Color/Normal/Stencil/Heatmap
+	Ctx->PSSetShaderResources(ESystemTexSlot::SceneDepth, 5, nullSRVs);
+
+	// t21~t25: Shadow (CSM/SpotAtlas/PointCube/SpotData/PointData)
+	Ctx->PSSetShaderResources(ESystemTexSlot::ShadowMapCSM, 5, nullSRVs);
 }
 
 // ============================================================

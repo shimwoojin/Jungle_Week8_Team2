@@ -1,4 +1,4 @@
-#include "EditorRenderPipeline.h"
+﻿#include "EditorRenderPipeline.h"
 #include "Editor/EditorEngine.h"
 #include "Editor/Viewport/LevelEditorViewportClient.h"
 #include "Render/Pipeline/Renderer.h"
@@ -10,6 +10,7 @@
 #include "Profiling/GPUProfiler.h"
 #include "Engine/Render/Types/ForwardLightData.h"
 #include "Component/Light/LightComponentBase.h"
+#include "Editor/Settings/ProjectSettings.h"
 
 FEditorRenderPipeline::FEditorRenderPipeline(UEditorEngine* InEditor, FRenderer& InRenderer)
 	: Editor(InEditor)
@@ -57,6 +58,14 @@ void FEditorRenderPipeline::Execute(float DeltaTime, FRenderer& Renderer)
 
 	// 이전 프레임 시각화 데이터 readback + 디버그 라인 제출
 	Renderer.SubmitCullingDebugLines(Editor->GetWorld());
+
+	// Non-PSM: 전체 1회 shadow bake (뷰포트 루프 전)
+	const auto& Shadow = FProjectSettings::Get().Shadow;
+	if (Shadow.bEnabled && !Shadow.bPSM)
+	{
+		SCOPE_STAT_CAT("GlobalShadows", "4_ExecutePass");
+		Renderer.RenderGlobalShadows(Editor->GetWorld()->GetScene());
+	}
 
 	for (FLevelEditorViewportClient* ViewportClient : Editor->GetLevelViewportClients())
 	{
@@ -107,10 +116,13 @@ void FEditorRenderPipeline::RenderViewport(FLevelEditorViewportClient* VC, FRend
 
 	PrepareViewport(VP, Camera, Ctx);
 	BuildFrame(VC, Camera, VP, World);
-	CollectCommands(VC, World, Renderer);
+
+	FCollectOutput Output;
+	CollectCommands(VC, World, Renderer, Output);
+
+	FScene& Scene = World->GetScene();
 
 	// GPU 정렬 + 제출
-	FScene& Scene = World->GetScene();
 	{
 		SCOPE_STAT_CAT("Renderer.Render", "4_ExecutePass");
 		Renderer.Render(Frame, Scene);
@@ -122,7 +134,7 @@ void FEditorRenderPipeline::RenderViewport(FLevelEditorViewportClient* VC, FRend
 		GPUOcclusion.DispatchOcclusionTest(
 			Ctx,
 			VP->GetDepthCopySRV(),
-			Collector.GetLastVisibleProxies(),
+			Output.FrustumVisibleProxies,
 			Frame.View, Frame.Proj,
 			VP->GetWidth(), VP->GetHeight());
 	}
@@ -186,9 +198,17 @@ void FEditorRenderPipeline::BuildFrame(FLevelEditorViewportClient* VC, UCameraCo
 }
 
 // ============================================================
-// CollectCommands — Proxy → FDrawCommand 수집
+// CollectCommands — Scene 데이터 주입 + DrawCommand 생성
 // ============================================================
-void FEditorRenderPipeline::CollectCommands(FLevelEditorViewportClient* VC, UWorld* World, FRenderer& Renderer)
+//
+// 3단계로 구성:
+//   1. Proxy   — frustum cull → DrawCommand 즉시 생성 (메시/폰트/데칼)
+//   2. Debug   — Scene에 디버그 데이터 주입 (Grid, DebugDraw, Octree, ShadowFrustum)
+//   3. UI      — Scene에 오버레이 텍스트 주입
+//
+// 마지막에 BuildDynamicCommands가 Scene 주입 데이터를 DrawCommand로 변환.
+
+void FEditorRenderPipeline::CollectCommands(FLevelEditorViewportClient* VC, UWorld* World, FRenderer& Renderer, FCollectOutput& Output)
 {
 	SCOPE_STAT_CAT("Collector", "3_Collect");
 
@@ -198,34 +218,36 @@ void FEditorRenderPipeline::CollectCommands(FLevelEditorViewportClient* VC, UWor
 	FDrawCommandBuilder& Builder = Renderer.GetBuilder();
 	Builder.BeginCollect(Frame, Scene.GetProxyCount());
 
+	const FShowFlags& Flags = Frame.RenderOptions.ShowFlags;
+
+	// ── 1. 데이터 수집: frustum cull + visibility/occlusion 필터 ──
 	{
-		SCOPE_STAT_CAT("CollectWorld", "3_Collect");
-		Collector.CollectWorld(World, Frame, Builder);
+		SCOPE_STAT_CAT("Collect", "3_Collect");
+		Collector.Collect(World, Frame, Output);
 	}
 
+	// ── 2. Debug: Scene에 디버그 데이터 주입 ──
 	{
-		SCOPE_STAT_CAT("CollectGrid", "3_Collect");
+		SCOPE_STAT_CAT("CollectDebug", "3_Collect");
 		Collector.CollectGrid(Frame.RenderOptions.GridSpacing, Frame.RenderOptions.GridHalfLineCount, Scene);
-	}
 
-	if (Frame.RenderOptions.ShowFlags.bShowShadowFrustum)
-	{
-		Scene.SubmitShadowFrustumDebug(World);
-	}
+		if (Flags.bShowShadowFrustum)
+			Scene.SubmitShadowFrustumDebug(World);
 
-	{
-		SCOPE_STAT_CAT("CollectDebugDraw", "3_Collect");
+		if (Flags.bOctree)
+			Collector.CollectOctreeDebug(World->GetOctree(), Scene);
+
 		Collector.CollectDebugDraw(Frame, Scene);
 	}
 
-	if (Frame.RenderOptions.ShowFlags.bOctree)
-		Collector.CollectOctreeDebug(World->GetOctree(), Scene);
-
+	// ── 3. UI: 오버레이 텍스트 ──
 	if (VC == Editor->GetActiveViewport())
 		Collector.CollectOverlayText(Editor->GetOverlayStatSystem(), *Editor, Scene);
 
+	// ── 4. 커맨드 일괄 생성 (프록시 + 동적) ──
 	{
-		SCOPE_STAT_CAT("BuildDynamicCommands", "3_Collect");
-		Builder.BuildDynamicCommands(Frame, &Scene);
+		SCOPE_STAT_CAT("BuildCommands", "3_Collect");
+		Builder.BuildCommands(Frame, &Scene, Output);
 	}
 }
+
