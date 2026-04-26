@@ -100,10 +100,14 @@ void FShadowMapPass::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, ui
 	// release old
 	if (Resources.SpotAtlasSRV) { Resources.SpotAtlasSRV->Release(); Resources.SpotAtlasSRV = nullptr; }
 	if (Resources.SpotAtlasDSVs) {
-		for (uint32 i = 0; i < Resources.SpotAtlasPageCount; ++i)
-			if (Resources.SpotAtlasDSVs[i]) Resources.SpotAtlasDSVs[i]->Release();
-		delete[] Resources.SpotAtlasDSVs;
-		Resources.SpotAtlasDSVs = nullptr;
+		for (uint32 i = 0; i < Resources.SpotAtlasPageCount; ++i) {
+			if (Resources.SpotAtlasDSVs[i]) { 
+				Resources.SpotAtlasDSVs[i]->Release();
+				Resources.SpotAtlasDSVs[i] = nullptr;
+			}
+		}
+		//delete[] Resources.SpotAtlasDSVs;
+		//Resources.SpotAtlasDSVs = nullptr;
 	}
 	if (Resources.SpotAtlasTexture) { Resources.SpotAtlasTexture->Release(); Resources.SpotAtlasTexture = nullptr; }
 	Resources.SpotAtlasPageCount = PageCount;
@@ -125,7 +129,7 @@ void FShadowMapPass::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, ui
 	// Create atlas dsv for each spotlights. PageCount = Number of spotlights to compute
 	for (uint32 i = 0; i < PageCount; i++) {
 		D3D11_DEPTH_STENCIL_VIEW_DESC SpotDSVDesc = {};
-		SpotDSVDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+		SpotDSVDesc.Format = DXGI_FORMAT_D32_FLOAT;
 		SpotDSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DARRAY;
 		SpotDSVDesc.Texture2DArray.ArraySize = 1;
 		SpotDSVDesc.Texture2DArray.MipSlice = 0;
@@ -136,9 +140,9 @@ void FShadowMapPass::EnsureSpotAtlas(ID3D11Device* Device, uint32 Resolution, ui
 
 	// Create atlas srv, one for the entire texture array
 	D3D11_SHADER_RESOURCE_VIEW_DESC SpotAtlasSRVDesc = {};
-	SpotAtlasSRVDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	SpotAtlasSRVDesc.Format = DXGI_FORMAT_R32_FLOAT;
 	SpotAtlasSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
-	SpotAtlasSRVDesc.Texture2DArray.ArraySize = 1;
+	SpotAtlasSRVDesc.Texture2DArray.ArraySize = PageCount;
 	SpotAtlasSRVDesc.Texture2DArray.FirstArraySlice = 0;
 	SpotAtlasSRVDesc.Texture2DArray.MipLevels = 1;
 	SpotAtlasSRVDesc.Texture2DArray.MostDetailedMip = 0;
