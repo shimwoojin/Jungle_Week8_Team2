@@ -19,7 +19,7 @@ TArray<FAtlasRegion> FAtlasQuadTreePoint::CommitBatch() {
 
 	TArray<FAtlasRegion> Results(N, { 0, 0, 0, false, -1 });
 	for (int32 OrigIdx : Order) {
-		FAtlasRegion AtlasRegion = AllocateNode(0, static_cast<uint32>(Batch[OrigIdx].second), OrigIdx / 6);
+		FAtlasRegion AtlasRegion = AllocateNode(0, static_cast<uint32>(Batch[OrigIdx].second), OrigIdx / 6, Batch[OrigIdx].first.CubeMapOrientation);
 		Results[OrigIdx] = AtlasRegion;
 	}
 
@@ -48,6 +48,6 @@ float FAtlasQuadTreePoint::EvaluateResolution(const FPointLightParams& InLightIn
 	float desired_res = sqrtf(A_screen) * (Color.X * 0.2126f + Color.Y * 0.7152f + Color.Z * 0.0722f) * InLightInfo.Intensity;
 
 	// Clamp and snap to nearest power of 2
-	desired_res = std::min(desired_res, static_cast<float>(AtlasSize));
+	desired_res = std::min(desired_res, AtlasSize);
 	return static_cast<float>(RoundToNearestPowerOfTwo(static_cast<uint32>(desired_res)));
 }

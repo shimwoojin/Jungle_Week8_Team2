@@ -1,4 +1,4 @@
-﻿#include "AtlasQUadTreeBase.h"
+﻿#include "AtlasQuadTreeBase.h"
 
 void FAtlasQuadTreeBase::Init(float InAtlasSize, float inMinShadowMapResolution) {
 	if (inMinShadowMapResolution <= 0.f || InAtlasSize <= 0.f) {
@@ -35,7 +35,7 @@ void FAtlasQuadTreeBase::Clear() {
 	RemainingSpace = AtlasSize * AtlasSize;
 }
 
-FAtlasRegion FAtlasQuadTreeBase::AllocateNode(int32 NodeIdx, uint32 RequestedSize, int32 OwnerIdx) {
+FAtlasRegion FAtlasQuadTreeBase::AllocateNode(int32 NodeIdx, uint32 RequestedSize, int32 OwnerIdx, ECubeMapOrientation FaceIdx) {
 	if (NodeIdx < 0
 		|| NodeIdx >= Nodes.size()
 		|| Nodes[NodeIdx].bOccupied
@@ -46,7 +46,7 @@ FAtlasRegion FAtlasQuadTreeBase::AllocateNode(int32 NodeIdx, uint32 RequestedSiz
 	}
 
 	if (RequestedSize * RequestedSize >= RemainingSpace && RequestedSize > MinShadowMapResolution)
-		return AllocateNode(NodeIdx, RequestedSize / 2, OwnerIdx);
+		return AllocateNode(NodeIdx, RequestedSize / 2, OwnerIdx, FaceIdx);
 
 	Node node = Nodes[NodeIdx];
 	if (node.bSplit) {
@@ -54,7 +54,7 @@ FAtlasRegion FAtlasQuadTreeBase::AllocateNode(int32 NodeIdx, uint32 RequestedSiz
 			if (Nodes[SubIdx].bOccupied || Nodes[SubIdx].Resolution < RequestedSize) continue;
 
 			// Greedily allocate the first child node that can fit the requested size
-			FAtlasRegion AllocatedRegion = AllocateNode(SubIdx, RequestedSize, OwnerIdx);
+			FAtlasRegion AllocatedRegion = AllocateNode(SubIdx, RequestedSize, OwnerIdx, FaceIdx);
 			if (AllocatedRegion.bValid) {
 				return AllocatedRegion;
 			}
@@ -66,13 +66,13 @@ FAtlasRegion FAtlasQuadTreeBase::AllocateNode(int32 NodeIdx, uint32 RequestedSiz
 		if (node.Resolution == RequestedSize) {
 			RemainingSpace -= RequestedSize * RequestedSize;
 			Nodes[NodeIdx].bOccupied = true;
-			return { static_cast<uint32> (node.TopLeft.X), static_cast<uint32> (node.TopLeft.Y), static_cast<uint32>(node.Resolution), true, OwnerIdx };
+			return { static_cast<uint32> (node.TopLeft.X), static_cast<uint32> (node.TopLeft.Y), static_cast<uint32>(node.Resolution), true, OwnerIdx, FaceIdx };
 		}
 		else {
 
 			// Try again after splitting
 			if (Split(NodeIdx)) {
-				return AllocateNode(NodeIdx, RequestedSize, OwnerIdx);
+				return AllocateNode(NodeIdx, RequestedSize, OwnerIdx, FaceIdx);
 			}
 		}
 	}

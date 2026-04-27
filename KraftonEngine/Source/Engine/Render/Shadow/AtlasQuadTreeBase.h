@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Math/Vector.h"
 #include "Core/ClassTypes.h"
+#include "Render/Types/GlobalLightParams.h"
 
 struct Node {
 	// Dimensions
@@ -13,10 +14,12 @@ struct Node {
 	int32			Children[4] = { -1, -1, -1, -1 };	// indices into Nodes[], -1 = no child
 };
 
-// CubeIdx Tracks which point cubemap this AtlasRegion belong to. -1 mean spotlight.
-struct FAtlasRegion { uint32 X, Y, Size; bool bValid; int32 CubeIdx = -1; };
+// LightIdx tracks which point this AtlasRegion belongs to. -1 mean spotlight.
+// FaceIdx tracks which face of the point cubemap this AtlasRegion belongs to.
+struct FAtlasRegion { uint32 X, Y, Size; bool bValid; int32 LightIdx = -1; ECubeMapOrientation FaceIdx = ECubeMapOrientation::CMO_Unknown;  };
 
 class FAtlasQuadTreeBase {
+	using enum ECubeMapOrientation;
 public:
 	virtual ~FAtlasQuadTreeBase() = default;
 
@@ -38,7 +41,7 @@ public:
 protected:
 	// Allocates the node at NodeIdx and returns the corresponding atlas region. Returns invalid region if the node is occupied or too small.
 	// OwnerIdx = -1 means spotlight
-	FAtlasRegion AllocateNode(int32 NodeIdx, uint32 RequestedSize, int32 OwnerIdx = -1);
+	FAtlasRegion AllocateNode(int32 NodeIdx, uint32 RequestedSize, int32 OwnerIdx = -1, ECubeMapOrientation FaceIdx = CMO_Unknown);
 
 	// Greedily splits the quadtree to find the best fit for the new shadow map
 	bool  Split(int32 Idx);
