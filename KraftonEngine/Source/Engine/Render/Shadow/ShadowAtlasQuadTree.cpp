@@ -33,7 +33,6 @@ float FShadowAtlasQuadTree::EvaluateResolution(const FSpotLightParams& InLightIn
 	}
 
 	auto z_view = (c_sphere - CameraPos).Dot(Forward);
-	float z_guard = 5.f;
 	z_view = z_view > z_guard ? z_view : z_guard;
 	auto r_ndc = (r_sphere / z_view) / tanf(FOV / 2.f);
 	auto r_pixel = r_ndc * H / 2.f;

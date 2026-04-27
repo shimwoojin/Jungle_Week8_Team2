@@ -53,4 +53,6 @@ protected:
 	float		 MinShadowMapResolution = 64.f;
 
 	float		 RemainingSpace = 4096.f * 4096.f;
+
+	const float  z_guard = 5.f;
 };

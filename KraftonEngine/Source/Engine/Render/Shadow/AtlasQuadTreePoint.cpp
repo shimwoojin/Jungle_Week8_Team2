@@ -37,12 +37,7 @@ float FAtlasQuadTreePoint::EvaluateResolution(const FPointLightParams& InLightIn
 
 	// Orthogonal view-space depth
 	auto z_view = (c_sphere - CameraPos).Dot(Forward);
-
-	const float MinSafeZ = r_sphere + 0.1f;
-
-	if (z_view <= MinSafeZ) {
-		return AtlasSize / 2;
-	}
+	z_view = z_view > z_guard ? z_view : z_guard;
 
 	// Project to screen space
 	auto r_ndc = (r_sphere / z_view) / tanf(FOV / 2.f);
