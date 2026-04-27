@@ -40,7 +40,7 @@ FAtlasRegion FAtlasQuadTreeBase::AllocateNode(int32 NodeIdx, uint32 RequestedSiz
 		|| NodeIdx >= Nodes.size()
 		|| Nodes[NodeIdx].bOccupied
 		|| RequestedSize < (uint32)(MinShadowMapResolution)
-		|| !RemainingSpace) {
+		|| RemainingSpace <= 0.f) {
 		// Invalid Node index
 		return { 0, 0, 0, false, OwnerIdx };
 	}
@@ -66,7 +66,7 @@ FAtlasRegion FAtlasQuadTreeBase::AllocateNode(int32 NodeIdx, uint32 RequestedSiz
 		if (node.Resolution == RequestedSize) {
 			RemainingSpace -= RequestedSize * RequestedSize;
 			Nodes[NodeIdx].bOccupied = true;
-			return { static_cast<uint32> (node.TopLeft.X), static_cast<uint32> (node.TopLeft.Y), static_cast<uint32>(node.Resolution), true };
+			return { static_cast<uint32> (node.TopLeft.X), static_cast<uint32> (node.TopLeft.Y), static_cast<uint32>(node.Resolution), true, OwnerIdx };
 		}
 		else {
 

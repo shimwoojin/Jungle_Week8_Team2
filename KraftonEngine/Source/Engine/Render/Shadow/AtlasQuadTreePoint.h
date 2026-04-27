@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "AtlasQuadTreebase.h"
+#include "AtlasQuadTreeBase.h"
 
 class FAtlasQuadTreePoint : public FAtlasQuadTreeBase {
 public:

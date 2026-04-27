@@ -16,10 +16,10 @@ struct Node {
 // CubeIdx Tracks which point cubemap this AtlasRegion belong to. -1 mean spotlight.
 struct FAtlasRegion { uint32 X, Y, Size; bool bValid; int32 CubeIdx = -1; };
 
-struct FPointLightParams;
-
 class FAtlasQuadTreeBase {
 public:
+	virtual ~FAtlasQuadTreeBase() = default;
+
 	// Initializes the head node of the atlas, and define the minimum resolution for the shadow maps to be allocated.
 	void Init(float InAtlasSize, float inMinShadowMapResolution);
 

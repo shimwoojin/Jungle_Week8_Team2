@@ -17,9 +17,9 @@ TArray<FAtlasRegion> FAtlasQuadTreePoint::CommitBatch() {
 		return Batch[A].second > Batch[B].second;
 		});
 
-	TArray<FAtlasRegion> Results(N, { 0, 0, 0, false });
+	TArray<FAtlasRegion> Results(N, { 0, 0, 0, false, -1 });
 	for (int32 OrigIdx : Order) {
-		FAtlasRegion AtlasRegion = AllocateNode(0, static_cast<uint32>(Batch[OrigIdx].second));
+		FAtlasRegion AtlasRegion = AllocateNode(0, static_cast<uint32>(Batch[OrigIdx].second), OrigIdx / 6);
 		Results[OrigIdx] = AtlasRegion;
 	}
 
