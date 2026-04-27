@@ -13,14 +13,15 @@ struct Node {
 	int32			Children[4] = { -1, -1, -1, -1 };	// indices into Nodes[], -1 = no child
 };
 
-struct FAtlasRegion { uint32 X, Y, Size; bool bValid; };
+// CubeIdx Tracks which point cubemap this AtlasRegion belong to. -1 mean spotlight.
+struct FAtlasRegion { uint32 X, Y, Size; bool bValid; int32 CubeIdx = -1; };
 
 struct FPointLightParams;
 
 class FAtlasQuadTreeBase {
 public:
 	// Initializes the head node of the atlas, and define the minimum resolution for the shadow maps to be allocated.
-	virtual void Init(float InAtlasSize, float inMinShadowMapResolution) = 0;
+	void Init(float InAtlasSize, float inMinShadowMapResolution);
 
 	// Sorts the pending batch by evaluated resolution, then allocates all entries into the atlas.
 	virtual TArray<FAtlasRegion> CommitBatch() = 0;
@@ -36,7 +37,8 @@ public:
 
 protected:
 	// Allocates the node at NodeIdx and returns the corresponding atlas region. Returns invalid region if the node is occupied or too small.
-	virtual FAtlasRegion AllocateNode(int32 NodeIdx, uint32 RequestedSize) = 0;
+	// OwnerIdx = -1 means spotlight
+	FAtlasRegion AllocateNode(int32 NodeIdx, uint32 RequestedSize, int32 OwnerIdx = -1);
 
 	// Greedily splits the quadtree to find the best fit for the new shadow map
 	bool  Split(int32 Idx);

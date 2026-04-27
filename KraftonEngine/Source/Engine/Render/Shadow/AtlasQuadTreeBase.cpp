@@ -1,5 +1,23 @@
 ﻿#include "AtlasQUadTreeBase.h"
 
+void FAtlasQuadTreeBase::Init(float InAtlasSize, float inMinShadowMapResolution) {
+	if (inMinShadowMapResolution <= 0.f || InAtlasSize <= 0.f) {
+		return;
+	}
+	if (inMinShadowMapResolution > InAtlasSize) {
+		return;
+	}
+
+	AtlasSize = InAtlasSize;
+	RemainingSpace = AtlasSize * AtlasSize;
+	MinShadowMapResolution = inMinShadowMapResolution;
+	Node RootNode = {};
+	RootNode.TopLeft = FVector2(0.f, 0.f);
+	RootNode.Resolution = InAtlasSize;
+
+	Nodes.push_back(RootNode);
+}
+
 void FAtlasQuadTreeBase::Reset() {
 	if (!Nodes.empty()) {
 		Nodes.resize(1);
@@ -15,6 +33,51 @@ void FAtlasQuadTreeBase::Reset() {
 void FAtlasQuadTreeBase::Clear() {
 	Nodes.clear();
 	RemainingSpace = AtlasSize * AtlasSize;
+}
+
+FAtlasRegion FAtlasQuadTreeBase::AllocateNode(int32 NodeIdx, uint32 RequestedSize, int32 OwnerIdx) {
+	if (NodeIdx < 0
+		|| NodeIdx >= Nodes.size()
+		|| Nodes[NodeIdx].bOccupied
+		|| RequestedSize < (uint32)(MinShadowMapResolution)
+		|| !RemainingSpace) {
+		// Invalid Node index
+		return { 0, 0, 0, false, OwnerIdx };
+	}
+
+	if (RequestedSize * RequestedSize >= RemainingSpace && RequestedSize > MinShadowMapResolution)
+		return AllocateNode(NodeIdx, RequestedSize / 2, OwnerIdx);
+
+	Node node = Nodes[NodeIdx];
+	if (node.bSplit) {
+		for (int32 SubIdx : node.Children) {
+			if (Nodes[SubIdx].bOccupied || Nodes[SubIdx].Resolution < RequestedSize) continue;
+
+			// Greedily allocate the first child node that can fit the requested size
+			FAtlasRegion AllocatedRegion = AllocateNode(SubIdx, RequestedSize, OwnerIdx);
+			if (AllocatedRegion.bValid) {
+				return AllocatedRegion;
+			}
+		}
+
+		return { 0, 0, 0, false, OwnerIdx };
+	}
+	else {
+		if (node.Resolution == RequestedSize) {
+			RemainingSpace -= RequestedSize * RequestedSize;
+			Nodes[NodeIdx].bOccupied = true;
+			return { static_cast<uint32> (node.TopLeft.X), static_cast<uint32> (node.TopLeft.Y), static_cast<uint32>(node.Resolution), true };
+		}
+		else {
+
+			// Try again after splitting
+			if (Split(NodeIdx)) {
+				return AllocateNode(NodeIdx, RequestedSize, OwnerIdx);
+			}
+		}
+	}
+
+	return { 0, 0, 0, false, OwnerIdx };
 }
 
 bool FAtlasQuadTreeBase::Split(int32 Idx) {
