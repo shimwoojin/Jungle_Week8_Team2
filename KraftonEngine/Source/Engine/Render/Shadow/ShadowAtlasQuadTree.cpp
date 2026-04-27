@@ -3,31 +3,6 @@
 
 #include <algorithm>
 
-namespace {
-	uint32 NextPowerOfTwo(uint32 v)
-	{
-		v--;
-		v |= v >> 1;
-		v |= v >> 2;
-		v |= v >> 4;
-		v |= v >> 8;
-		v |= v >> 16;
-		v++;
-		return v;
-	}
-
-	uint32 RoundToNearestPowerOfTwo(uint32 Value)
-	{
-		if (Value <= 1)
-			return 1;
-
-		uint32 Upper = NextPowerOfTwo(Value);
-		uint32 Lower = Upper >> 1;
-
-		return (Value - Lower < Upper - Value) ? Lower : Upper;
-	}
-}
-
 // Public functions
 void FShadowAtlasQuadTree::Init(float InAtlasSize, float InMinShadowMapResolution) {
 	if (InMinShadowMapResolution <= 0.f || InAtlasSize <= 0.f) {

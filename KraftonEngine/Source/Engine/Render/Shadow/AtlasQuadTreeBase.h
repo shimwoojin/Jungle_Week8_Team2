@@ -41,6 +41,10 @@ protected:
 	// Greedily splits the quadtree to find the best fit for the new shadow map
 	bool  Split(int32 Idx);
 
+	// Math helpers
+	uint32 NextPowerOfTwo(uint32 v) const;
+	uint32 RoundToNearestPowerOfTwo(uint32 Value) const;
+
 protected:
 	TArray<Node> Nodes;
 	float		 AtlasSize = 4096.f;

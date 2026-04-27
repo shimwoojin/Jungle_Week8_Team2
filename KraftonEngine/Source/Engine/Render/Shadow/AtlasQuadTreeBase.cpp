@@ -51,3 +51,26 @@ bool FAtlasQuadTreeBase::Split(int32 Idx) {
 	Nodes[Idx].bSplit = true;
 	return true;
 }
+
+uint32 FAtlasQuadTreeBase::NextPowerOfTwo(uint32 v) const
+{
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v++;
+	return v;
+}
+
+uint32 FAtlasQuadTreeBase::RoundToNearestPowerOfTwo(uint32 Value) const
+{
+	if (Value <= 1)
+		return 1;
+
+	uint32 Upper = NextPowerOfTwo(Value);
+	uint32 Lower = Upper >> 1;
+
+	return (Value - Lower < Upper - Value) ? Lower : Upper;
+}
