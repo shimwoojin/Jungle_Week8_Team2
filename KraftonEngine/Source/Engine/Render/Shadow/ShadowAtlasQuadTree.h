@@ -1,22 +1,9 @@
 ﻿#pragma once
-#include "Math/Vector.h"
-#include "Core/ClassTypes.h"
+#include "AtlasQuadTreeBase.h"
 
 // Exclusive to spotlights
 struct FSpotLightParams;
 
-struct Node {
-	// Dimensions
-	FVector2		TopLeft;
-	float			Resolution;
-
-	// Data
-	bool			bOccupied	= false;				// True if and only if this node is allocated to a shadow map by whole
-	bool			bSplit		= false;				// True if and only if this node has been split into a subtree
-	int32			Children[4] = { -1, -1, -1, -1 };	// indices into Nodes[], -1 = no child
-};
-
-struct FAtlasRegion { uint32 X, Y, Size; bool bValid; };
 
 // Buddy allocation quadtree for shadow atlas management
 class FShadowAtlasQuadTree {

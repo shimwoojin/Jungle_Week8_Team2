@@ -1,0 +1,2 @@
+﻿#include "AtlasQUadTreeBase.h"
+
