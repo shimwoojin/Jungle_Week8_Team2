@@ -3,8 +3,7 @@
 #include "Component/SceneComponent.h"
 #include "Math/Quat.h"
 
-DEFINE_CLASS(UInterpToMovementComponent, UMovementComponent)
-REGISTER_FACTORY(UInterpToMovementComponent)
+IMPLEMENT_CLASS(UInterpToMovementComponent, UMovementComponent)
 
 namespace {
 	// Returns normalized direction from A to B
