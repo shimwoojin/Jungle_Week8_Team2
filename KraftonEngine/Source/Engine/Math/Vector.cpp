@@ -81,14 +81,6 @@ float FVector::DistSquared(const FVector& V1, const FVector& V2) {
 	return (DX * DX) + (DY * DY) + (DZ * DZ);
 }
 
-bool FVector::IsNearlyZero(float Tolerance = 1.e-6f) const noexcept
-{
-	return DirectX::XMVector3NearEqual(
-		ToXMVector(),
-		DirectX::XMVectorZero(),
-		DirectX::XMVectorReplicate(Tolerance));
-}
-
 // Linear interpolation from A to B at time t
 FVector FVector::Lerp(const FVector& A, const FVector& B, float t)
 {

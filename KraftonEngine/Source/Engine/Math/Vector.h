@@ -47,7 +47,13 @@ struct FVector {
 	}
 
 	// 모든 성분이 허용 오차(Tolerance) 이하인지 확인함
-	bool IsNearlyZero(float Tolerance = 1.e-6f) const noexcept;
+	bool IsNearlyZero(float Tolerance = 1.e-6f) const noexcept
+	{
+		return DirectX::XMVector3NearEqual(
+			ToXMVector(),
+			DirectX::XMVectorZero(),
+			DirectX::XMVectorReplicate(Tolerance));
+	}
 	
 	float Length() const;
 	void  Normalize();

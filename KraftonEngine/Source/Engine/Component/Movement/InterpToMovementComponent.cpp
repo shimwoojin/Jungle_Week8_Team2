@@ -23,6 +23,10 @@ namespace {
 
 // --- Overrides ---------------------------------------------------------
 void UInterpToMovementComponent::BeginPlay() {
+	UMovementComponent::BeginPlay();
+
+	if (!UpdatedComponent) return;
+
 	for (auto& ControlPoint : ControlPoints) {
 		ControlPoint += UpdatedComponent->GetWorldLocation();
 	}
@@ -33,14 +37,14 @@ void UInterpToMovementComponent::BeginPlay() {
 }
 
 void UInterpToMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction& ThisTickFunction) {
+	UMovementComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
 	if (!bisLerping) return;
 	Elapsed += DeltaTime;
 
-	// Lerp
-	UpdateLerp(DeltaTime);
-
-	// Rotate towards movement direction
+	// FaceTargetDir must run before UpdateLerp — UpdateLerp can advance PointIDs via DestinationReached
 	FaceTargetDir(DeltaTime);
+	UpdateLerp(DeltaTime);
 }
 
 void UInterpToMovementComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) {
@@ -144,7 +148,7 @@ void UInterpToMovementComponent::Pong() {
 }
 
 void UInterpToMovementComponent::UpdateLerp(float DeltaTime) {
-	// Lerp
+	if (!UpdatedComponent) return;
 	if (ControlPoints.size() <= 1 || NextPointID >= ControlPoints.size())
 		return;
 	float Alpha = (Elapsed / (Duration * NextDistRatio));
@@ -173,7 +177,7 @@ void UInterpToMovementComponent::FaceTargetDir(float DeltaTime) {
 	if (Half.IsNearlyZero())
 	{
 		// Dir is exactly anti-parallel to Forward. Rotate 180 Deg around Up (+Z)
-		TargetQuat = FQuat(FVector::UpVector, 3.14159265f);
+		TargetQuat = FQuat::FromAxisAngle(FVector::UpVector, 3.14159265f);
 	}
 	else
 	{
@@ -188,7 +192,7 @@ void UInterpToMovementComponent::FaceTargetDir(float DeltaTime) {
 	float Alpha = (RotateDuration > 0.f) ? (DeltaTime / RotateDuration) : 1.f;
 	Alpha = Alpha < 1.f ? Alpha : 1.f;
 
-	UpdatedComponent->SetRelativeRotationQuat(FQuat::Slerp(Current, TargetQuat, Alpha));
+	UpdatedComponent->SetRelativeRotation(FQuat::Slerp(Current, TargetQuat, Alpha));
 }
 
 void UInterpToMovementComponent::DestinationReached() {
