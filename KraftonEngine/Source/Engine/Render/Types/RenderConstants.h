@@ -152,13 +152,16 @@ struct FShadowCBData
 	// CSM(Directional) 파라미터 — Spot/Point는 per-light StructuredBuffer(t24,t25) 참조
 	float    ShadowBias;                         //   4B | offset 272
 	float    ShadowSlopeBias;                    //   4B | offset 276
+	float    ShadowNormalBias;					 //   4B
 	float    ShadowSharpen;                      //   4B | offset 280
-	uint32   ShadowFilterMode;                   //   4B | offset 284  (0=Hard, 1=PCF, 2=VSM)
 
+	uint32   ShadowFilterMode;                   //   4B | offset 284  (0=Hard, 1=PCF, 2=VSM)
 	uint32   NumCSMCascades;                     //   4B | offset 288
 	uint32   NumShadowSpotLights;                //   4B | offset 292
 	uint32   NumShadowPointLights;               //   4B | offset 296
+
 	uint32   CSMResolution;                      //   4B | offset 300  → 합계 304B, 16B 정렬 OK
+	float    Pad[3];
 };
 static_assert(sizeof(FShadowCBData) % 16 == 0, "FShadowCBData must be 16-byte aligned");
 
