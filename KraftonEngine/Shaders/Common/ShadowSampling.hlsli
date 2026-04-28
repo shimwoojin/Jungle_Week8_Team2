@@ -95,9 +95,12 @@ float CalcDirectionalShadowFactor(float3 worldPos, float viewDepth, float3 N)
 
     // cascade 선택
     uint cascade = SelectCascade(viewDepth);
+    
+    // Normal offset: push receiver along surface normal to avoid self-shadowing on slopes
+    float3 biasedPos = worldPos + N * ShadowNormalBias;
 
     // 라이트 공간 좌표 계산
-    float4 lightSpacePos = mul(float4(worldPos, 1.0f), CSMViewProj[cascade]);
+    float4 lightSpacePos = mul(float4(biasedPos, 1.0f), CSMViewProj[cascade]);
     float3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
 
     // NDC [-1,1] → UV [0,1]  (Y 반전)
@@ -110,9 +113,8 @@ float CalcDirectionalShadowFactor(float3 worldPos, float viewDepth, float3 N)
         fragDepth < 0.0f  || fragDepth > 1.0f)
         return 1.0f;
 
-    // slope bias: 경사면일수록 bias 증가 (Normal Offset 방식)
-    float slope = 1.0f - saturate(dot(N, -DirectionalLight.Direction));
-    fragDepth += ShadowBias + ShadowSlopeBias * slope;
+    // constant depth bias only — slope bias is already handled by normal offset above
+    fragDepth += ShadowBias;
 
     float3 uvw = float3(shadowUV, (float)cascade);
     float texelSize = 1.0f / (float)CSMResolution;
