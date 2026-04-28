@@ -1,4 +1,5 @@
 ﻿#include "Vector.h"
+#include <DirectXMath.h>
 
 #pragma region __FVECTOR__
 
@@ -80,6 +81,21 @@ float FVector::DistSquared(const FVector& V1, const FVector& V2) {
 	return (DX * DX) + (DY * DY) + (DZ * DZ);
 }
 
+bool FVector::IsNearlyZero(float Tolerance = 1.e-6f) const noexcept
+{
+	return DirectX::XMVector3NearEqual(
+		ToXMVector(),
+		DirectX::XMVectorZero(),
+		DirectX::XMVectorReplicate(Tolerance));
+}
+
+// Linear interpolation from A to B at time t
+FVector FVector::Lerp(const FVector& A, const FVector& B, float t)
+{
+	FVector Delta = B - A;
+	return A + Delta * t;
+}
+
 FVector FVector::operator+(const FVector& Other) const {
 	FVector ret;
 	ret.X = X + Other.X;
@@ -157,6 +173,18 @@ FVector& FVector::operator/=(float Scalar) {
 	*this = *this / Scalar;
 	return *this;
 }
+
+const FVector FVector::ZeroVector(0.f, 0.f, 0.f);
+const FVector FVector::OneVector(1.0f, 1.0f, 1.0f);
+const FVector FVector::UpVector(0.0f, 0.0f, 1.0f);
+const FVector FVector::DownVector(0.0f, 0.0f, -1.0f);
+const FVector FVector::ForwardVector(1.0f, 0.0f, 0.0f);
+const FVector FVector::BackwardVector(-1.0f, 0.0f, 0.0f);
+const FVector FVector::RightVector(0.0f, 1.0f, 0.0f);
+const FVector FVector::LeftVector(0.0f, -1.0f, 0.0f);
+const FVector FVector::XAxisVector(1.0f, 0.0f, 0.0f);
+const FVector FVector::YAxisVector(0.0f, 1.0f, 0.0f);
+const FVector FVector::ZAxisVector(0.0f, 0.0f, 1.0f);
 
 #pragma endregion
 
