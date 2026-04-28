@@ -19,6 +19,7 @@ public:
 	void				BeginPlay() override;
 	void				TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction& ThisTickFunction) override;
 	void				GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
+	void				Serialize(FArchive& Ar) override;
 
 	// Control Point Management
 	void				AddControlPoint(FVector InControlPoint);

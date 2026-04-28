@@ -2,6 +2,7 @@
 #include "Object/ObjectFactory.h"
 #include "Component/SceneComponent.h"
 #include "Math/Quat.h"
+#include "Serialization/Archive.h"
 
 IMPLEMENT_CLASS(UInterpToMovementComponent, UMovementComponent)
 
@@ -56,6 +57,16 @@ void UInterpToMovementComponent::GetEditableProperties(TArray<FPropertyDescripto
 	static const char* InterpBehaviourNames[] = { "One Shot", "One Shot Reverse", "Loop", "Ping-Pong" };
 	OutProps.push_back({ "Interp Mode",			  EPropertyType::Enum,		 &InterpBehaviour, 0,0,0, InterpBehaviourNames, 4 });
 	OutProps.push_back({ "Control Points",		  EPropertyType::Vec3Array,  &ControlPoints });
+}
+
+void UInterpToMovementComponent::Serialize(FArchive& Ar)
+{
+	UMovementComponent::Serialize(Ar);
+	Ar << InterpBehaviour;
+	Ar << Duration;
+	Ar << bAutoActivate;
+	Ar << bFaceTargetDir;
+	Ar << ControlPoints;
 }
 
 // --- Control Point Management--------------------------------------------

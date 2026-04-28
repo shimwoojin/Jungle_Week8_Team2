@@ -1235,15 +1235,9 @@ bool FEditorPropertyWidget::RenderPropertyWidget(TArray<FPropertyDescriptor>& Pr
 			ImGui::PushID(i);
 			char Label[16];
 			snprintf(Label, sizeof(Label), "[%d]", i);
-			ImGui::Text("%s", Label);
-			ImGui::SameLine();
-			float V[3] = { (*Arr)[i].X, (*Arr)[i].Y, (*Arr)[i].Z };
-			ImGui::SetNextItemWidth(-26.0f);
-			if (ImGui::DragFloat3("##v", V, 1.0f))
-			{
-				(*Arr)[i] = FVector(V[0], V[1], V[2]);
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 30.0f);
+			if (ImGui::DragFloat3(Label, &(*Arr)[i].X, 1.0f))
 				bChanged = true;
-			}
 			ImGui::SameLine();
 			if (ImGui::SmallButton("x"))
 				RemoveIdx = i;
