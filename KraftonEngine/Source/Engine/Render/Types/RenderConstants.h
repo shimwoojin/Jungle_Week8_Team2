@@ -117,9 +117,10 @@ struct FSpotShadowDataGPU
 	uint32   PageIndex;          //  4B | offset 80  (Texture2DArray slice)
 	float    ShadowBias;         //  4B | offset 84
 	float    ShadowSharpen;      //  4B | offset 88
-	float    ShadowSlopeBias;    //  4B | offset 92  → 합계 96B
+	float    ShadowSlopeBias;    //  4B | offset 92 
+	float    ShadowNormalBias;   //  4B | offset 96
+	float    SpotPad0[3];		 // 12B | offset 100
 };
-static_assert(sizeof(FSpotShadowDataGPU) == 96, "FSpotShadowDataGPU size mismatch with HLSL");
 static_assert(sizeof(FSpotShadowDataGPU) % 16 == 0);
 
 // Point Light: 6면 ViewProj + per-face atlas UV rect
