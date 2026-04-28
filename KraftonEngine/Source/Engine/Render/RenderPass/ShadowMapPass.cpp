@@ -51,6 +51,8 @@ void FShadowMapPass::SetupShadowRenderState(FD3DDevice& Device, FSystemResources
 	ID3D11ShaderResourceView* nullSRVs[5] = {};
 	DC->PSSetShaderResources(ESystemTexSlot::ShadowMapCSM, 3, nullSRVs);       // t21~t23
 	DC->PSSetShaderResources(ESystemTexSlot::SpotShadowDatas, 2, nullSRVs);    // t24~t25
+	DC->VSSetShaderResources(ESystemTexSlot::ShadowMapCSM, 3, nullSRVs);       // t21~t23
+	DC->VSSetShaderResources(ESystemTexSlot::SpotShadowDatas, 2, nullSRVs);    // t24~t25
 
 	// FilterMode 결정
 	CurrentFilterMode = FShadowSettings::Get().GetEffectiveFilterMode();
@@ -289,12 +291,16 @@ void FShadowMapPass::EnsureResources(const FPassContext& Ctx)
 	ID3D11Device* Dev = Ctx.Device.GetDevice();
 	FShadowMapResources& Res = Ctx.Resources.ShadowResources;
 	const FSceneEnvironment& Env = Ctx.Scene->GetEnvironment();
-	const uint32 Resolution = FShadowSettings::Get().GetEffectiveResolution();
+	uint32 Resolution = FShadowSettings::Get().GetEffectiveCSMResolution();
 	const bool bVSM = (CurrentFilterMode == EShadowFilterMode::VSM);
 
 	// ── CSM (Directional) — Directional Light가 있을 때만 생성, 없으면 해제 ──
 	if (Env.HasGlobalDirectionalLight())
 	{
+		const FGlobalDirectionalLightParams& DirectionalParams = Env.GetGlobalDirectionalLightParams();
+		const float ScaledResolution = static_cast<float>(Resolution) * DirectionalParams.ShadowResolutionScale;
+		Resolution = static_cast<uint32>((std::max)(64.0f, (std::min)(ScaledResolution, 8192.0f)));
+		
 		Res.EnsureCSM(Dev, Resolution);
 		if (bVSM) Res.EnsureCSM_VSM(Dev, Resolution);
 	}
@@ -477,7 +483,8 @@ void FShadowMapPass::RenderDirectionalShadows(const FPassContext& Ctx, FShadowMa
 	const float CameraNearZ = Ctx.Frame.NearClip;
 	const float CameraFarZ = Ctx.Frame.FarClip;
 
-	const float ShadowDistance = FShadowSettings::Get().GetEffectiveShadowDistance();
+	//해당 범위까지 directional light에 대한 shadow가 그려지며, 이 구간을 4개의 cascade로 분할함
+	const float ShadowDistance = FShadowSettings::Get().GetEffectiveCSMDistance();
 	const float ShadowFarZ = (CameraFarZ < ShadowDistance) ? CameraFarZ : ShadowDistance;
 	const float CascadeLambda = FShadowSettings::Get().GetEffectiveCSMCascadeLambda();
 
