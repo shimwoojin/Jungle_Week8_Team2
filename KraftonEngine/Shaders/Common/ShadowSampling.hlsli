@@ -96,7 +96,7 @@ float CalcDirectionalShadowFactor(float3 worldPos, float viewDepth, float3 N)
     // cascade 선택
     uint cascade = SelectCascade(viewDepth);
     
-    // Normal offset: push receiver along surface normal to avoid self-shadowing on slopes
+    // Normal bias
     float3 biasedPos = worldPos + N * ShadowNormalBias;
 
     // 라이트 공간 좌표 계산
@@ -144,7 +144,8 @@ float CalcSpotShadowFactor(uint lightIndex, float3 worldPos, float3 N, float3 li
 
     FSpotShadowData sd = SpotShadowDatas[lightIndex];
 
-    float4 lightSpacePos = mul(float4(worldPos, 1.0f), sd.ViewProj);
+    float3 biasedPos = worldPos + N * sd.ShadowNormalBias;
+    float4 lightSpacePos = mul(float4(biasedPos, 1.0f), sd.ViewProj);
     float3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
 
     float2 shadowUV = projCoords.xy * float2(0.5f, -0.5f) + 0.5f;
@@ -199,7 +200,8 @@ float CalcPointShadowFactor(uint lightIndex, float3 worldPos, float3 lightPos, f
     float3 lightDir = normalize(L);
     float slope = 1.0f - saturate(dot(N, -lightDir));
 
-    float4 lightSpacePos = mul(float4(worldPos, 1.0f), pointLightData.FaceViewProj[face]);
+    float3 biasedPos = worldPos + N * pointLightData.ShadowNormalBias;
+    float4 lightSpacePos = mul(float4(biasedPos, 1.0f), pointLightData.FaceViewProj[face]);
     float3 ndc = lightSpacePos.xyz / lightSpacePos.w;
 
     float2 projUV = ndc.xy * float2(0.5f, -0.5f) + 0.5f;
