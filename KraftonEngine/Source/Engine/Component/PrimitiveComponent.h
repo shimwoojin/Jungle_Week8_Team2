@@ -8,6 +8,7 @@
 #include "Core/EngineTypes.h"
 #include "Render/Types/VertexTypes.h"
 #include "Render/Proxy/DirtyFlag.h"
+#include "Collision/CollisionTypes.h"
 
 class FPrimitiveSceneProxy;
 class FScene;
@@ -82,6 +83,10 @@ public:
 		OctreeNode = nullptr;
 		bInOctreeOverflow = false;
 	}
+
+public:
+	virtual ECollisionShapeType GetCollisionShapeType() const;
+	virtual FBoundingBox GetWorldAABB() const;
 
 protected:
 	void OnTransformDirty() override;
