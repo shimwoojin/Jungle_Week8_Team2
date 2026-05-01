@@ -1,9 +1,12 @@
 ﻿#pragma once
 
+#include "Component/Collision/BoxComponent.h"
+#include "Component/Collision/CapsuleComponent.h"
+#include "Component/Collision/ShapeComponent.h"
+#include "Component/Collision/SphereComponent.h"
 #include "Core/CoreTypes.h"
 #include "Object/Object.h"
 #include "GameFramework/AActor.h"
-#include "GameFramework/StaticMeshActor.h"
 
 // Lua가 Object에 직접 접근할 수 없도록 감쌈
 // nullptr일 경우를 대비
@@ -23,16 +26,64 @@ struct FLuaGameObjectHandle
 	}
 };
 
-// Lua가 Static Mesh에 직접 접근할 수 없도록 감쌈
+// Lua가 Shape에 직접 접근할 수 없도록 감쌈
 // nullptr일 경우를 대비
 struct FLuaShapeComponentHandle
 {
 	uint32 UUID = 0;
 
-	UStaticMeshComponent* Resolve() const
+	UShapeComponent* Resolve() const
 	{
 		UObject* Object = UObjectManager::Get().FindByUUID(UUID);
-		return Cast<UStaticMeshComponent>(Object);
+		return Cast<UShapeComponent>(Object);
+	}
+
+	bool IsValid() const
+	{
+		return Resolve() != nullptr;
+	}
+};
+
+struct FLuaBoxComponentHandle
+{
+	uint32 UUID = 0;
+
+	UBoxComponent* Resolve() const
+	{
+		UObject* Object = UObjectManager::Get().FindByUUID(UUID);
+		return Cast<UBoxComponent>(Object);
+	}
+
+	bool IsValid() const
+	{
+		return Resolve() != nullptr;
+	}
+};
+
+struct FLuaSphereComponentHandle
+{
+	uint32 UUID = 0;
+
+	USphereComponent* Resolve() const
+	{
+		UObject* Object = UObjectManager::Get().FindByUUID(UUID);
+		return Cast<USphereComponent>(Object);
+	}
+
+	bool IsValid() const
+	{
+		return Resolve() != nullptr;
+	}
+};
+
+struct FLuaCapsuleComponentHandle
+{
+	uint32 UUID = 0;
+
+	UCapsuleComponent* Resolve() const
+	{
+		UObject* Object = UObjectManager::Get().FindByUUID(UUID);
+		return Cast<UCapsuleComponent>(Object);
 	}
 
 	bool IsValid() const

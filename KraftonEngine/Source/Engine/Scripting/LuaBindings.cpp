@@ -12,7 +12,10 @@
 #include "Object/Object.h"
 #include "GameFramework/AActor.h"
 #include "Component/ActorComponent.h"
-#include "Component/StaticMeshComponent.h"
+#include "Component/Collision/BoxComponent.h"
+#include "Component/Collision/CapsuleComponent.h"
+#include "Component/Collision/ShapeComponent.h"
+#include "Component/Collision/SphereComponent.h"
 #include "Component/Movement/ProjectileMovementComponent.h"
 
 namespace
@@ -50,7 +53,7 @@ namespace
 		return Actor->AddComponent<UProjectileMovementComponent>();
 	}
 
-	UStaticMeshComponent* FindShapeComponent(AActor* Actor)
+	UShapeComponent* FindShapeComponent(AActor* Actor)
 	{
 		if (!Actor)
 		{
@@ -59,7 +62,7 @@ namespace
 
 		for (UActorComponent* Component : Actor->GetComponents())
 		{
-			if (UStaticMeshComponent* Shape = Cast<UStaticMeshComponent>(Component))
+			if (UShapeComponent* Shape = Cast<UShapeComponent>(Component))
 			{
 				return Shape;
 			}
@@ -73,7 +76,12 @@ namespace
 void RegisterLuaBindings(sol::state& Lua)
 {
 	RegisterFVectorBinding(Lua);
+	
 	RegisterShapeComponentBinding(Lua);
+	RegisterSphereComponentBinding(Lua);
+	RegisterBoxComponentBinding(Lua);
+	RegisterCapsuleComponentBinding(Lua);
+	
 	RegisterGameObjectBinding(Lua);
 	RegisterDelegateBinding(Lua);
 }
@@ -204,7 +212,7 @@ void RegisterGameObjectBinding(sol::state& Lua)
 				FLuaShapeComponentHandle Handle;
 
 				AActor* Actor = Self.Resolve();
-				UStaticMeshComponent* Shape = FindShapeComponent(Actor);
+				UShapeComponent* Shape = FindShapeComponent(Actor);
 
 				if (Shape)
 				{
@@ -255,7 +263,7 @@ void RegisterGameObjectBinding(sol::state& Lua)
 	);
 }
 
-// Lua에 StaticMesh를 등록
+// Lua에 충돌용 Shape를 등록
 // Handle을 통해 UUID로만 접근 가능
 void RegisterShapeComponentBinding(sol::state& Lua)
 {
@@ -270,63 +278,199 @@ void RegisterShapeComponentBinding(sol::state& Lua)
 		"UUID",
 		sol::property([](const FLuaShapeComponentHandle& Self) { return Self.UUID; }),
 
-		"Visible",
+		"ShapeType",
 		sol::property(
 			[](const FLuaShapeComponentHandle& Self)
 			{
-				UStaticMeshComponent* Shape = Self.Resolve();
-				return Shape ? Shape->IsVisible() : false;
-			},
-			[](const FLuaShapeComponentHandle& Self, bool bVisible)
-			{
-				UStaticMeshComponent* Shape = Self.Resolve();
+				UShapeComponent* Shape = Self.Resolve();
+
 				if (!Shape)
 				{
-					UE_LOG("[Lua] Invalid ShapeComponent.Visible Access.");
-					return;
+					return static_cast<int>(ECollisionShapeType::None);
 				}
 
-				Shape->SetVisibility(bVisible);
+				return static_cast<int>(Shape->GetCollisionShapeType());
 			}
 		),
 
-		"RelativeLocation",
+		"AsBox",
+		[](const FLuaShapeComponentHandle& Self, sol::this_state State) -> sol::object
+		{
+			sol::state_view LuaView(State);
+
+			UShapeComponent* Shape = Self.Resolve();
+			UBoxComponent* Box = Cast<UBoxComponent>(Shape);
+
+			if (!Box)
+			{
+				return sol::nil;
+			}
+
+			FLuaBoxComponentHandle Handle;
+			Handle.UUID = Box->GetUUID();
+
+			return sol::make_object(LuaView, Handle);
+		},
+
+		"AsSphere",
+		[](const FLuaShapeComponentHandle& Self, sol::this_state State) -> sol::object
+		{
+			sol::state_view LuaView(State);
+
+			UShapeComponent* Shape = Self.Resolve();
+			USphereComponent* Sphere = Cast<USphereComponent>(Shape);
+
+			if (!Sphere)
+			{
+				return sol::nil;
+			}
+
+			FLuaSphereComponentHandle Handle;
+			Handle.UUID = Sphere->GetUUID();
+
+			return sol::make_object(LuaView, Handle);
+		},
+
+		"AsCapsule",
+		[](const FLuaShapeComponentHandle& Self, sol::this_state State) -> sol::object
+		{
+			sol::state_view LuaView(State);
+
+			UShapeComponent* Shape = Self.Resolve();
+			UCapsuleComponent* Capsule = Cast<UCapsuleComponent>(Shape);
+
+			if (!Capsule)
+			{
+				return sol::nil;
+			}
+
+			FLuaCapsuleComponentHandle Handle;
+			Handle.UUID = Capsule->GetUUID();
+
+			return sol::make_object(LuaView, Handle);
+		}
+	);
+
+	Lua["ShapeType_None"] = static_cast<int>(ECollisionShapeType::None);
+	Lua["ShapeType_Box"] = static_cast<int>(ECollisionShapeType::Box);
+	Lua["ShapeType_Sphere"] = static_cast<int>(ECollisionShapeType::Sphere);
+	Lua["ShapeType_Capsule"] = static_cast<int>(ECollisionShapeType::Capsule);
+}
+void RegisterBoxComponentBinding(sol::state& Lua)
+{
+	Lua.new_usertype<FLuaBoxComponentHandle>(
+		"BoxComponent",
+
+		sol::no_constructor,
+
+		"IsValid",
+		[](const FLuaBoxComponentHandle& Handle) { return Handle.IsValid(); },
+
+		"UUID",
+		sol::property([](const FLuaBoxComponentHandle& Self) { return Self.UUID; }),
+
+		"Extent",
 		sol::property(
-			[](const FLuaShapeComponentHandle& Self)
+			[](const FLuaBoxComponentHandle& Self)
 			{
-				UStaticMeshComponent* Shape = Self.Resolve();
-				return Shape ? Shape->GetRelativeLocation() : FVector::ZeroVector;
+				UBoxComponent* Box = Self.Resolve();
+				return Box ? Box->GetBoxExtent() : FVector::ZeroVector;
 			},
-			[](const FLuaShapeComponentHandle& Self, const FVector& Location)
+			[](const FLuaBoxComponentHandle& Self, const FVector& Extent)
 			{
-				UStaticMeshComponent* Shape = Self.Resolve();
-				if (!Shape)
+				UBoxComponent* Box = Self.Resolve();
+				if (!Box)
 				{
-					UE_LOG("[Lua] Invalid ShapeComponent.RelativeLocation Access.");
+					UE_LOG("[Lua] Invalid BoxComponent.Extent Access.");
 					return;
 				}
 
-				Shape->SetRelativeLocation(Location);
+				Box->SetBoxExtent(Extent);
 			}
-		),
-		
-		"WorldLocation",
+		)
+	);
+}
+void RegisterSphereComponentBinding(sol::state& Lua)
+{
+	Lua.new_usertype<FLuaSphereComponentHandle>(
+		"SphereComponent",
+
+		sol::no_constructor,
+
+		"IsValid",
+		[](const FLuaSphereComponentHandle& Handle) { return Handle.IsValid(); },
+
+		"UUID",
+		sol::property([](const FLuaSphereComponentHandle& Self) { return Self.UUID; }),
+
+		"Radius",
 		sol::property(
-			[](const FLuaShapeComponentHandle& Self)
+			[](const FLuaSphereComponentHandle& Self)
 			{
-				UStaticMeshComponent* Shape = Self.Resolve();
-				return Shape ? Shape->GetWorldLocation() : FVector::ZeroVector;
+				USphereComponent* Shape = Self.Resolve();
+				return Shape ? Shape->GetSphereRadius() : 0.0f;
 			},
-			[](const FLuaShapeComponentHandle& Self, const FVector& Location)
+			[](const FLuaSphereComponentHandle& Self, float Radius)
 			{
-				UStaticMeshComponent* Shape = Self.Resolve();
+				USphereComponent* Shape = Self.Resolve();
 				if (!Shape)
 				{
-					UE_LOG("[Lua] Invalid ShapeComponent.WorldLocation Access.");
+					UE_LOG("[Lua] Invalid SphereComponent.Radius Access.");
 					return;
 				}
-				
-				Shape->SetWorldLocation(Location);
+				Shape->SetSphereRadius(Radius);
+			}
+		)
+	);
+}
+void RegisterCapsuleComponentBinding(sol::state& Lua)
+{
+	Lua.new_usertype<FLuaCapsuleComponentHandle>(
+		"CapsuleComponent",
+
+		sol::no_constructor,
+
+		"IsValid",
+		[](const FLuaCapsuleComponentHandle& Handle) { return Handle.IsValid(); },
+
+		"UUID",
+		sol::property([](const FLuaCapsuleComponentHandle& Self) { return Self.UUID; }),
+
+		"Radius",
+		sol::property(
+			[](const FLuaCapsuleComponentHandle& Self)
+			{
+				UCapsuleComponent* Capsule = Self.Resolve();
+				return Capsule ? Capsule->GetCapsuleRadius() : 0.0f;
+			},
+			[](const FLuaCapsuleComponentHandle& Self, float Radius)
+			{
+				UCapsuleComponent* Capsule = Self.Resolve();
+				if (!Capsule)
+				{
+					UE_LOG("[Lua] Invalid CapsuleComponent.Radius Access.");
+					return;
+				}
+				Capsule->SetCapsuleRadius(Radius);
+			}
+		),
+
+		"HalfHeight",
+		sol::property(
+			[](const FLuaCapsuleComponentHandle& Self)
+			{
+				UCapsuleComponent* Capsule = Self.Resolve();
+				return Capsule ? Capsule->GetCapsuleHalfHeight() : 0.0f;
+			},
+			[](const FLuaCapsuleComponentHandle& Self, float HalfHeight)
+			{
+				UCapsuleComponent* Capsule = Self.Resolve();
+				if (!Capsule)
+				{
+					UE_LOG("[Lua] Invalid CapsuleComponent.HalfHeight Access.");
+					return;
+				}
+				Capsule->SetCapsuleHalfHeight(HalfHeight);
 			}
 		)
 	);
