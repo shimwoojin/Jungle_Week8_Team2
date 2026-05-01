@@ -770,6 +770,9 @@
     <ClCompile Include="Source\Engine\Scripting\LuaBindings.cpp">
       <Filter>Source\Engine\Scripting</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Scripting\LuaComponentBindings.cpp">
+      <Filter>Source\Engine\Scripting</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Scripting\LuaDelegateBindings.cpp">
       <Filter>Source\Engine\Scripting</Filter>
     </ClCompile>
@@ -780,6 +783,9 @@
       <Filter>Source\Engine\Scripting</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Scripting\LuaMovementBindings.cpp">
+      <Filter>Source\Engine\Scripting</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Scripting\LuaPropertyBridge.cpp">
       <Filter>Source\Engine\Scripting</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Scripting\LuaScriptSubsystem.cpp">
@@ -1461,6 +1467,9 @@
       <Filter>Source\Engine\Scripting</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Scripting\LuaHandles.h">
+      <Filter>Source\Engine\Scripting</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Scripting\LuaPropertyBridge.h">
       <Filter>Source\Engine\Scripting</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Scripting\LuaScriptSubsystem.h">

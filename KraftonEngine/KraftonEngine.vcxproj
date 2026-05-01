@@ -409,10 +409,12 @@
     <ClCompile Include="Source\Engine\Runtime\WindowsWindow.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaActorLifecycleBindings.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaBindings.cpp" />
+    <ClCompile Include="Source\Engine\Scripting\LuaComponentBindings.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaDelegateBindings.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaGameObjectBindings.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaMathBindings.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaMovementBindings.cpp" />
+    <ClCompile Include="Source\Engine\Scripting\LuaPropertyBridge.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaScriptSubsystem.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaShapeBindings.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaStaticMeshBindings.cpp" />
@@ -642,6 +644,7 @@
     <ClInclude Include="Source\Engine\Scripting\LuaBindingHelper.h" />
     <ClInclude Include="Source\Engine\Scripting\LuaBindings.h" />
     <ClInclude Include="Source\Engine\Scripting\LuaHandles.h" />
+    <ClInclude Include="Source\Engine\Scripting\LuaPropertyBridge.h" />
     <ClInclude Include="Source\Engine\Scripting\LuaScriptSubsystem.h" />
     <ClInclude Include="Source\Engine\Scripting\LuaWorldLibrary.h" />
     <ClInclude Include="Source\Engine\Scripting\SolInclude.h" />
