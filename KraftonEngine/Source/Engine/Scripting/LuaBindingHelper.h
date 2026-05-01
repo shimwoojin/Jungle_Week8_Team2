@@ -3,6 +3,7 @@
 #include "Core/Log.h"
 
 // Handle 타입에 공통으로 필요한 Lua 멤버를 등록
+// HANDLE_TYPE: FLuaGameObjectHandle, FLuaBoxComponentHandle처럼 UUID와 IsValid()를 가진 Lua Handle 타입
 #define LUA_HANDLE_COMMON(HANDLE_TYPE) \
 	"IsValid", \
 	[](const HANDLE_TYPE& Handle) \
@@ -18,6 +19,7 @@
 	)
 
 // Component의 읽기 전용 property를 Lua에 등록
+// TYPE_NAME: 로그용 타입 이름, PROPERTY_NAME: Lua 속성 이름, HANDLE_TYPE: Lua Handle 타입, COMPONENT_TYPE: 실제 C++ 컴포넌트 타입, VALUE_TYPE: 반환 타입, DEFAULT_VALUE: 실패 시 기본값, GETTER_CALL: Component-> 뒤에 붙을 getter 호출식
 #define LUA_COMPONENT_RO_PROPERTY(TYPE_NAME, PROPERTY_NAME, HANDLE_TYPE, COMPONENT_TYPE, VALUE_TYPE, DEFAULT_VALUE, GETTER_CALL) \
 	PROPERTY_NAME, \
 	sol::property( \
@@ -29,6 +31,7 @@
 	)
 
 // Component의 읽기/쓰기 property를 Lua에 등록
+// TYPE_NAME: 로그용 타입 이름, PROPERTY_NAME: Lua 속성 이름, HANDLE_TYPE: Lua Handle 타입, COMPONENT_TYPE: 실제 C++ 컴포넌트 타입, VALUE_TYPE: 속성 타입, DEFAULT_VALUE: 실패 시 기본값, GETTER_CALL: getter 호출식, SETTER_CALL: Value를 사용하는 setter 호출식
 #define LUA_COMPONENT_RW_PROPERTY(TYPE_NAME, PROPERTY_NAME, HANDLE_TYPE, COMPONENT_TYPE, VALUE_TYPE, DEFAULT_VALUE, GETTER_CALL, SETTER_CALL) \
 	PROPERTY_NAME, \
 	sol::property( \
@@ -50,6 +53,7 @@
 	)
 
 // Component의 멤버 함수를 Lua 메서드로 등록
+// TYPE_NAME: 로그용 타입 이름, METHOD_NAME: Lua 메서드 이름, HANDLE_TYPE: Lua Handle 타입, COMPONENT_TYPE: 실제 C++ 컴포넌트 타입, METHOD_CALL: Component-> 뒤에 붙을 함수 호출식
 #define LUA_COMPONENT_METHOD(TYPE_NAME, METHOD_NAME, HANDLE_TYPE, COMPONENT_TYPE, METHOD_CALL) \
 	METHOD_NAME, \
 	[](const HANDLE_TYPE& Self) \
@@ -64,6 +68,7 @@
 	}
 
 // GameObject에서 특정 컴포넌트를 찾아 Lua Handle로 반환하는 property를 등록
+// PROPERTY_NAME: GameObject에 노출할 Lua 속성 이름, HANDLE_TYPE: 반환할 Lua Handle 타입, COMPONENT_TYPE: Actor에서 찾을 실제 C++ 컴포넌트 타입
 #define LUA_GAMEOBJECT_COMPONENT_PROPERTY(PROPERTY_NAME, HANDLE_TYPE, COMPONENT_TYPE) \
 	PROPERTY_NAME, \
 	sol::property( \
@@ -81,6 +86,7 @@
 	)
 
 // 부모 Handle에서 자식 타입 Handle로 다운캐스팅하는 Lua 메서드를 등록
+// METHOD_NAME: Lua 다운캐스팅 메서드 이름, SOURCE_HANDLE_TYPE: 원본 Handle 타입, SOURCE_COMPONENT_TYPE: 원본 C++ 타입, TARGET_HANDLE_TYPE: 반환할 Handle 타입, TARGET_COMPONENT_TYPE: 캐스팅할 자식 C++ 타입
 #define LUA_HANDLE_DOWNCAST_METHOD(METHOD_NAME, SOURCE_HANDLE_TYPE, SOURCE_COMPONENT_TYPE, TARGET_HANDLE_TYPE, TARGET_COMPONENT_TYPE) \
 	METHOD_NAME, \
 	[](const SOURCE_HANDLE_TYPE& Self, sol::this_state State) -> sol::object \
@@ -98,6 +104,7 @@
 	}
 
 // 일반 getter 호출로 처리하기 어려운 읽기 전용 property를 등록
+// TYPE_NAME: 로그용 타입 이름, PROPERTY_NAME: Lua 속성 이름, HANDLE_TYPE: Lua Handle 타입, COMPONENT_TYPE: 실제 C++ 타입, VALUE_TYPE: 반환 타입, DEFAULT_VALUE: 실패 시 기본값, EXPR: Component 변수를 사용하는 반환 표현식
 #define LUA_COMPONENT_RO_PROPERTY_EXPR(TYPE_NAME, PROPERTY_NAME, HANDLE_TYPE, COMPONENT_TYPE, VALUE_TYPE, DEFAULT_VALUE, EXPR) \
 	PROPERTY_NAME, \
 	sol::property( \
@@ -109,5 +116,24 @@
 				return DEFAULT_VALUE; \
 			} \
 			return EXPR; \
+		} \
+	)
+
+// Actor 기반 Lua Delegate 등록 함수를 생성
+// LUA_STATE: sol::state 변수, LUA_FUNCTION_NAME: Lua에 노출할 함수 이름, REGISTER_CALL: Actor와 Function을 사용해 실제 DelegateManager에 등록하는 호출식
+#define LUA_REGISTER_ACTOR_DELEGATE(LUA_STATE, LUA_FUNCTION_NAME, REGISTER_CALL) \
+	(LUA_STATE).set_function( \
+		LUA_FUNCTION_NAME, \
+		[](const FLuaGameObjectHandle& Object, sol::protected_function Function) \
+		{ \
+			AActor* Actor = Object.Resolve(); \
+			if (!Actor) \
+			{ \
+				UE_LOG("[Lua] " LUA_FUNCTION_NAME " Failed: Invalid GameObject."); \
+				return false; \
+			} \
+			REGISTER_CALL; \
+			UE_LOG("[Lua] " LUA_FUNCTION_NAME " registered for Actor UUID = %u", Actor->GetUUID()); \
+			return true; \
 		} \
 	)

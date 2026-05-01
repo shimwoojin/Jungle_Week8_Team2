@@ -670,24 +670,14 @@ void RegisterCapsuleComponentBinding(sol::state& Lua)
 // Lua에 Delegate 함수를 등록
 void RegisterDelegateBinding(sol::state& Lua)
 {
-	Lua.set_function(
+	LUA_REGISTER_ACTOR_DELEGATE(
+		Lua,
 		"RegisterOnTick",
-		[](const FLuaGameObjectHandle& Object, sol::protected_function Function)
-		{
-			AActor* Actor = Object.Resolve();
-
-			if (!Actor)
-			{
-				UE_LOG("[Lua] RegisterOnTick Failed: Invalid GameObject.");
-				return false;
-			}
-
-			// TODO : Delegate 함수 등록
-			// 예시: 
-			// FLuaDelegateManager::Get().RegisterActorTick(Actor->GetUUID(), Function);
-
-			UE_LOG("[Lua] RegisterOnTick called for Actor UUID = %u", Actor->GetUUID());
-			return true;
-		}
+		// TODO : 실제 함수 등록
+		// FLuaDelegateManager::Get().RegisterActorTick(
+		// 	Actor->GetUUID(),
+		// 	Function
+		// )
+		[](){}
 	);
 }
