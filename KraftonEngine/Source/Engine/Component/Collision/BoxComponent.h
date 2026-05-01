@@ -12,6 +12,7 @@ public:
 	}
 
 	virtual FBoundingBox GetWorldAABB() const override;
+	void DrawDebugShape(FScene& Scene, const FColor& Color) const override;
 
 	const FVector& GetBoxExtent() const { return BoxExtent; }
 	void SetBoxExtent(const FVector& InExtent) { BoxExtent = InExtent; }

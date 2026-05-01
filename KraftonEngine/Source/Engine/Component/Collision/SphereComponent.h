@@ -11,6 +11,7 @@ public:
 	}
 
 	virtual FBoundingBox GetWorldAABB() const override;
+	void DrawDebugShape(FScene& Scene, const FColor& Color) const override;
 
 	float GetSphereRadius() const { return SphereRadius; }
 	void SetSphereRadius(float InRadius) { SphereRadius = InRadius; }

@@ -11,6 +11,7 @@ public:
 	}
 
 	virtual FBoundingBox GetWorldAABB() const override;
+	void DrawDebugShape(FScene& Scene, const FColor& Color) const override;
 
 	float GetCapsuleRadius() const { return CapsuleRadius; }
 	float GetCapsuleHalfHeight() const { return CapsuleHalfHeight; }
