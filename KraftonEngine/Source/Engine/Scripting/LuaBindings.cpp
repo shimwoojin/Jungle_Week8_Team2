@@ -3,12 +3,14 @@
 #define SOL_ALL_SAFETIES_ON 1
 #define SOL_LUAJIT 1
 
+#include "LuaBindingHelper.h"
 #include "SolInclude.h"
 
 #include "LuaHandles.h"
 
 #include "Core/Log.h"
 #include "Math/Vector.h"
+#include "Math/Rotator.h"
 #include "Object/Object.h"
 #include "GameFramework/AActor.h"
 #include "Component/ActorComponent.h"
@@ -16,11 +18,15 @@
 #include "Component/Collision/CapsuleComponent.h"
 #include "Component/Collision/ShapeComponent.h"
 #include "Component/Collision/SphereComponent.h"
+#include "Component/Movement/PendulumMovementComponent.h"
 #include "Component/Movement/ProjectileMovementComponent.h"
+#include "Component/Movement/InterpToMovementComponent.h"
+#include "Component/Movement/RotatingMovementComponent.h"
 
 namespace
 {
-	UProjectileMovementComponent* FindProjectileMovementComponent(AActor* Actor)
+	template<typename TComponent>
+	TComponent* FindComponent(AActor* Actor)
 	{
 		if (!Actor)
 		{
@@ -29,46 +35,29 @@ namespace
 
 		for (UActorComponent* Component : Actor->GetComponents())
 		{
-			if (UProjectileMovementComponent* Movement = Cast<UProjectileMovementComponent>(Component))
+			if (TComponent* TypeComponent = Cast<TComponent>(Component))
 			{
-				return Movement;
+				return TypeComponent;
 			}
 		}
 
 		return nullptr;
 	}
 
-	UProjectileMovementComponent* EnsureProjectileMovementComponent(AActor* Actor)
+	template<typename TComponent>
+	TComponent* EnsureComponent(AActor* Actor)
 	{
 		if (!Actor)
 		{
 			return nullptr;
 		}
 
-		if (UProjectileMovementComponent* Existing = FindProjectileMovementComponent(Actor))
+		if (TComponent* Existing = FindComponent<TComponent>(Actor))
 		{
 			return Existing;
 		}
 
-		return Actor->AddComponent<UProjectileMovementComponent>();
-	}
-
-	UShapeComponent* FindShapeComponent(AActor* Actor)
-	{
-		if (!Actor)
-		{
-			return nullptr;
-		}
-
-		for (UActorComponent* Component : Actor->GetComponents())
-		{
-			if (UShapeComponent* Shape = Cast<UShapeComponent>(Component))
-			{
-				return Shape;
-			}
-		}
-
-		return nullptr;
+		return Actor->AddComponent<TComponent>();
 	}
 }
 
@@ -76,11 +65,18 @@ namespace
 void RegisterLuaBindings(sol::state& Lua)
 {
 	RegisterFVectorBinding(Lua);
+	RegisterFRotatorBinding(Lua);
 	
 	RegisterShapeComponentBinding(Lua);
 	RegisterSphereComponentBinding(Lua);
 	RegisterBoxComponentBinding(Lua);
 	RegisterCapsuleComponentBinding(Lua);
+
+	RegisterMovementComponentBinding(Lua);
+	RegisterProjectileMovementComponentBinding(Lua);
+	RegisterInterpToMovementComponentBinding(Lua);
+	RegisterPendulumMovementComponentBinding(Lua);
+	RegisterRotatingMovementComponentBinding(Lua);
 	
 	RegisterGameObjectBinding(Lua);
 	RegisterDelegateBinding(Lua);
@@ -139,6 +135,33 @@ void RegisterFVectorBinding(sol::state& Lua)
 	Lua["VectorForward"] = FVector::ForwardVector;
 }
 
+void RegisterFRotatorBinding(sol::state& Lua)
+{
+	Lua.new_usertype<FRotator>(
+		"FRotator",
+		sol::constructors<FRotator(), FRotator(float, float, float)>(),
+
+		"pitch",
+		sol::property(
+			[](const FRotator& R) { return R.Pitch; }
+		),
+
+		"yaw",
+		sol::property(
+			[](const FRotator& R) { return R.Yaw; }
+		),
+
+		"roll",
+		sol::property(
+			[](const FRotator& R) { return R.Roll; }
+		),
+
+		"Pitch", &FRotator::Pitch,
+		"Yaw", &FRotator::Yaw,
+		"Roll", &FRotator::Roll
+	);
+}
+
 // Lua에 GameObject를 등록
 // Handle을 통해 UUID로만 접근 가능
 void RegisterGameObjectBinding(sol::state& Lua)
@@ -148,15 +171,8 @@ void RegisterGameObjectBinding(sol::state& Lua)
 
 		sol::no_constructor,
 
-		"IsValid",
-		[](const FLuaGameObjectHandle& Handle) { return Handle.IsValid(); },
-
-		"IsInvalid",
-		[](const FLuaGameObjectHandle& Handle) { return !Handle.IsValid(); },
-
-		"UUID",
-		sol::property([](const FLuaGameObjectHandle& Self) { return Self.UUID; }),
-
+		LUA_HANDLE_COMMON(FLuaGameObjectHandle),
+		
 		"Location",
 		sol::property(
 			[](const FLuaGameObjectHandle& Self)
@@ -167,62 +183,47 @@ void RegisterGameObjectBinding(sol::state& Lua)
 			[](const FLuaGameObjectHandle& Self, const FVector& Location)
 			{
 				AActor* Actor = Self.Resolve();
+
 				if (!Actor)
 				{
 					UE_LOG("[Lua] Invalid GameObject.Location Access.");
 					return;
 				}
+
 				Actor->SetActorLocation(Location);
 			}
 		),
 
-		"Velocity",
-		sol::property(
-			[](const FLuaGameObjectHandle& Self)
-			{
-				AActor* Actor = Self.Resolve();
-				UProjectileMovementComponent* Movement = FindProjectileMovementComponent(Actor);
-				return Movement ? Movement->GetVelocity() : FVector::ZeroVector;
-			},
-			[](const FLuaGameObjectHandle& Self, const FVector& Velocity)
-			{
-				AActor* Actor = Self.Resolve();
-
-				if (!Actor)
-				{
-					UE_LOG("[Lua] Invalid GameObject.Velocity Access.");
-					return;
-				}
-
-				UProjectileMovementComponent* Movement = EnsureProjectileMovementComponent(Actor);
-
-				if (!Movement)
-				{
-					UE_LOG("[Lua] Failed to create ProjectileMoveComponent");
-					return;
-				}
-				Movement->SetVelocity(Velocity);
-			}
+		LUA_GAMEOBJECT_COMPONENT_PROPERTY(
+			"Shape",
+			FLuaShapeComponentHandle,
+			UShapeComponent
 		),
 
-		"Shape",
-		sol::property(
-			[](const FLuaGameObjectHandle& Self)
-			{
-				FLuaShapeComponentHandle Handle;
-
-				AActor* Actor = Self.Resolve();
-				UShapeComponent* Shape = FindShapeComponent(Actor);
-
-				if (Shape)
-				{
-					Handle.UUID = Shape->GetUUID();
-				}
-
-				return Handle;
-			}
+		LUA_GAMEOBJECT_COMPONENT_PROPERTY(
+			"ProjectileMovement",
+			FLuaProjectileMovementComponentHandle,
+			UProjectileMovementComponent
 		),
 
+		LUA_GAMEOBJECT_COMPONENT_PROPERTY(
+			"InterpMovement",
+			FLuaInterpToMoveComponentHandle,
+			UInterpToMovementComponent
+		),
+
+		LUA_GAMEOBJECT_COMPONENT_PROPERTY(
+			"PendulumMovement",
+			FLuaPendulumMovementComponentHandle,
+			UPendulumMovementComponent
+		),
+
+		LUA_GAMEOBJECT_COMPONENT_PROPERTY(
+			"RotatingMovement",
+			FLuaRotatingMovementComponentHandle,
+			URotatingMovementComponent
+		),
+		
 		"PrintLocation",
 		[](const FLuaGameObjectHandle& Self)
 		{
@@ -235,8 +236,13 @@ void RegisterGameObjectBinding(sol::state& Lua)
 			}
 
 			const FVector Location = Actor->GetActorLocation();
-			UE_LOG("[Lua] GameObject UUID = %u, Location=(%.3f, %.3f, %.3f)",
-				Actor->GetUUID(), Location.X, Location.Y, Location.Z
+
+			UE_LOG(
+				"[Lua] GameObject UUID=%u, Location=(%.3f, %.3f, %.3f)",
+				Actor->GetUUID(),
+				Location.X,
+				Location.Y,
+				Location.Z
 			);
 		}
 	);
@@ -263,6 +269,275 @@ void RegisterGameObjectBinding(sol::state& Lua)
 	);
 }
 
+void RegisterMovementComponentBinding(sol::state& Lua)
+{
+	Lua.new_usertype<FLuaMovementComponentHandle>(
+		"MovementComponent",
+
+		sol::no_constructor,
+
+		LUA_HANDLE_COMMON(FLuaMovementComponentHandle),
+
+		LUA_COMPONENT_RO_PROPERTY(
+			"MovementComponent",
+			"HasValidUpdatedComponent",
+			FLuaMovementComponentHandle,
+			UMovementComponent,
+			bool,
+			false,
+			HasValidUpdatedComponent()
+		)
+	);
+}
+
+void RegisterProjectileMovementComponentBinding(sol::state& Lua)
+{
+	Lua.new_usertype<FLuaProjectileMovementComponentHandle>(
+		"ProjectileMovementComponent",
+
+		sol::no_constructor,
+
+		LUA_HANDLE_COMMON(FLuaProjectileMovementComponentHandle),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"ProjectileMovementComponent",
+			"Velocity",
+			FLuaProjectileMovementComponentHandle,
+			UProjectileMovementComponent,
+			FVector,
+			FVector::ZeroVector,
+			GetVelocity(),
+			SetVelocity(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"ProjectileMovementComponent",
+			"InitialSpeed",
+			FLuaProjectileMovementComponentHandle,
+			UProjectileMovementComponent,
+			float,
+			0.0f,
+			GetInitialSpeed(),
+			SetInitialSpeed(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"ProjectileMovementComponent",
+			"MaxSpeed",
+			FLuaProjectileMovementComponentHandle,
+			UProjectileMovementComponent,
+			float,
+			0.0f,
+			GetMaxSpeed(),
+			SetMaxSpeed(Value)
+		),
+
+		LUA_COMPONENT_RO_PROPERTY(
+			"ProjectileMovementComponent",
+			"PreviewVelocity",
+			FLuaProjectileMovementComponentHandle,
+			UProjectileMovementComponent,
+			FVector,
+			FVector::ZeroVector,
+			GetPreviewVelocity()
+		),
+
+		LUA_COMPONENT_METHOD(
+			"ProjectileMovementComponent",
+			"StopSimulating",
+			FLuaProjectileMovementComponentHandle,
+			UProjectileMovementComponent,
+			StopSimulating()
+		)
+	);
+}
+
+void RegisterInterpToMovementComponentBinding(sol::state& Lua)
+{
+	Lua.new_usertype<FLuaInterpToMoveComponentHandle>(
+		"InterpToMovementComponent",
+
+		sol::no_constructor,
+
+		LUA_HANDLE_COMMON(FLuaInterpToMoveComponentHandle),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"InterpToMovementComponent",
+			"Duration",
+			FLuaInterpToMoveComponentHandle,
+			UInterpToMovementComponent,
+			float,
+			0.0f,
+			GetInterpDuration(),
+			SetInterpDuration(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"InterpToMovementComponent",
+			"AutoActivate",
+			FLuaInterpToMoveComponentHandle,
+			UInterpToMovementComponent,
+			bool,
+			false,
+			IsAutoActivating(),
+			ShouldAutoActivate(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"InterpToMovementComponent",
+			"FaceTargetDir",
+			FLuaInterpToMoveComponentHandle,
+			UInterpToMovementComponent,
+			bool,
+			false,
+			IsFacingTargetDir(),
+			ShouldFaceTargetDir(Value)
+		),
+
+		LUA_COMPONENT_METHOD(
+			"InterpToMovementComponent",
+			"Initiate",
+			FLuaInterpToMoveComponentHandle,
+			UInterpToMovementComponent,
+			Initiate()
+		),
+
+		LUA_COMPONENT_METHOD(
+			"InterpToMovementComponent",
+			"Reset",
+			FLuaInterpToMoveComponentHandle,
+			UInterpToMovementComponent,
+			Reset()
+		),
+
+		LUA_COMPONENT_METHOD(
+			"InterpToMovementComponent",
+			"ResetAndHalt",
+			FLuaInterpToMoveComponentHandle,
+			UInterpToMovementComponent,
+			ResetAndHalt()
+		)
+	);
+}
+
+void RegisterPendulumMovementComponentBinding(sol::state& Lua)
+{
+	Lua.new_usertype<FLuaPendulumMovementComponentHandle>(
+		"PendulumMovementComponent",
+
+		sol::no_constructor,
+
+		LUA_HANDLE_COMMON(FLuaPendulumMovementComponentHandle),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"PendulumMovementComponent",
+			"Axis",
+			FLuaPendulumMovementComponentHandle,
+			UPendulumMovementComponent,
+			FVector,
+			FVector::UpVector,
+			GetAxis(),
+			SetAxis(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"PendulumMovementComponent",
+			"Amplitude",
+			FLuaPendulumMovementComponentHandle,
+			UPendulumMovementComponent,
+			float,
+			0.0f,
+			GetAmplitude(),
+			SetAmplitude(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"PendulumMovementComponent",
+			"Frequency",
+			FLuaPendulumMovementComponentHandle,
+			UPendulumMovementComponent,
+			float,
+			0.0f,
+			GetFrequency(),
+			SetFrequency(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"PendulumMovementComponent",
+			"Phase",
+			FLuaPendulumMovementComponentHandle,
+			UPendulumMovementComponent,
+			float,
+			0.0f,
+			GetPhase(),
+			SetPhase(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"PendulumMovementComponent",
+			"AngleOffset",
+			FLuaPendulumMovementComponentHandle,
+			UPendulumMovementComponent,
+			float,
+			0.0f,
+			GetAngleOffset(),
+			SetAngleOffset(Value)
+		)
+	);
+}
+
+void RegisterRotatingMovementComponentBinding(sol::state& Lua)
+{
+	Lua.new_usertype<FLuaRotatingMovementComponentHandle>(
+		"RotatingMovementComponent",
+
+		sol::no_constructor,
+
+		LUA_HANDLE_COMMON(FLuaRotatingMovementComponentHandle),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"RotatingMovementComponent",
+			"RotationRate",
+			FLuaRotatingMovementComponentHandle,
+			URotatingMovementComponent,
+			FRotator,
+			FRotator(),
+			GetRotationRate(),
+			SetRotationRate(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"RotatingMovementComponent",
+			"RotationInLocalSpace",
+			FLuaRotatingMovementComponentHandle,
+			URotatingMovementComponent,
+			bool,
+			false,
+			IsRotationInLocalSpace(),
+			SetRotationInLocalSpace(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"RotatingMovementComponent",
+			"PivotTranslation",
+			FLuaRotatingMovementComponentHandle,
+			URotatingMovementComponent,
+			FVector,
+			FVector::ZeroVector,
+			GetPivotTranslation(),
+			SetPivotTranslation(Value)
+		),
+
+		LUA_COMPONENT_METHOD(
+			"RotatingMovementComponent",
+			"ResetWorldPivotCache",
+			FLuaRotatingMovementComponentHandle,
+			URotatingMovementComponent,
+			ResetWorldPivotCache()
+		)
+	);
+}
+
 // Lua에 충돌용 Shape를 등록
 // Handle을 통해 UUID로만 접근 가능
 void RegisterShapeComponentBinding(sol::state& Lua)
@@ -272,83 +547,41 @@ void RegisterShapeComponentBinding(sol::state& Lua)
 
 		sol::no_constructor,
 
-		"IsValid",
-		[](const FLuaShapeComponentHandle& Handle) { return Handle.IsValid(); },
+		LUA_HANDLE_COMMON(FLuaShapeComponentHandle),
 
-		"UUID",
-		sol::property([](const FLuaShapeComponentHandle& Self) { return Self.UUID; }),
-
-		"ShapeType",
-		sol::property(
-			[](const FLuaShapeComponentHandle& Self)
-			{
-				UShapeComponent* Shape = Self.Resolve();
-
-				if (!Shape)
-				{
-					return static_cast<int>(ECollisionShapeType::None);
-				}
-
-				return static_cast<int>(Shape->GetCollisionShapeType());
-			}
+		LUA_COMPONENT_RO_PROPERTY_EXPR(
+			"ShapeComponent",
+			"ShapeType",
+			FLuaShapeComponentHandle,
+			UShapeComponent,
+			int,
+			static_cast<int>(ECollisionShapeType::None),
+			static_cast<int>(Component->GetCollisionShapeType())
 		),
 
-		"AsBox",
-		[](const FLuaShapeComponentHandle& Self, sol::this_state State) -> sol::object
-		{
-			sol::state_view LuaView(State);
+		LUA_HANDLE_DOWNCAST_METHOD(
+			"AsBox",
+			FLuaShapeComponentHandle,
+			UShapeComponent,
+			FLuaBoxComponentHandle,
+			UBoxComponent
+		),
 
-			UShapeComponent* Shape = Self.Resolve();
-			UBoxComponent* Box = Cast<UBoxComponent>(Shape);
+		LUA_HANDLE_DOWNCAST_METHOD(
+			"AsSphere",
+			FLuaShapeComponentHandle,
+			UShapeComponent,
+			FLuaSphereComponentHandle,
+			USphereComponent
+		),
 
-			if (!Box)
-			{
-				return sol::nil;
-			}
-
-			FLuaBoxComponentHandle Handle;
-			Handle.UUID = Box->GetUUID();
-
-			return sol::make_object(LuaView, Handle);
-		},
-
-		"AsSphere",
-		[](const FLuaShapeComponentHandle& Self, sol::this_state State) -> sol::object
-		{
-			sol::state_view LuaView(State);
-
-			UShapeComponent* Shape = Self.Resolve();
-			USphereComponent* Sphere = Cast<USphereComponent>(Shape);
-
-			if (!Sphere)
-			{
-				return sol::nil;
-			}
-
-			FLuaSphereComponentHandle Handle;
-			Handle.UUID = Sphere->GetUUID();
-
-			return sol::make_object(LuaView, Handle);
-		},
-
-		"AsCapsule",
-		[](const FLuaShapeComponentHandle& Self, sol::this_state State) -> sol::object
-		{
-			sol::state_view LuaView(State);
-
-			UShapeComponent* Shape = Self.Resolve();
-			UCapsuleComponent* Capsule = Cast<UCapsuleComponent>(Shape);
-
-			if (!Capsule)
-			{
-				return sol::nil;
-			}
-
-			FLuaCapsuleComponentHandle Handle;
-			Handle.UUID = Capsule->GetUUID();
-
-			return sol::make_object(LuaView, Handle);
-		}
+		LUA_HANDLE_DOWNCAST_METHOD(
+			"AsCapsule",
+			FLuaShapeComponentHandle,
+			UShapeComponent,
+			FLuaCapsuleComponentHandle,
+			UCapsuleComponent
+		)
 	);
 
 	Lua["ShapeType_None"] = static_cast<int>(ECollisionShapeType::None);
@@ -356,6 +589,7 @@ void RegisterShapeComponentBinding(sol::state& Lua)
 	Lua["ShapeType_Sphere"] = static_cast<int>(ECollisionShapeType::Sphere);
 	Lua["ShapeType_Capsule"] = static_cast<int>(ECollisionShapeType::Capsule);
 }
+
 void RegisterBoxComponentBinding(sol::state& Lua)
 {
 	Lua.new_usertype<FLuaBoxComponentHandle>(
@@ -363,33 +597,21 @@ void RegisterBoxComponentBinding(sol::state& Lua)
 
 		sol::no_constructor,
 
-		"IsValid",
-		[](const FLuaBoxComponentHandle& Handle) { return Handle.IsValid(); },
+		LUA_HANDLE_COMMON(FLuaBoxComponentHandle),
 
-		"UUID",
-		sol::property([](const FLuaBoxComponentHandle& Self) { return Self.UUID; }),
-
-		"Extent",
-		sol::property(
-			[](const FLuaBoxComponentHandle& Self)
-			{
-				UBoxComponent* Box = Self.Resolve();
-				return Box ? Box->GetBoxExtent() : FVector::ZeroVector;
-			},
-			[](const FLuaBoxComponentHandle& Self, const FVector& Extent)
-			{
-				UBoxComponent* Box = Self.Resolve();
-				if (!Box)
-				{
-					UE_LOG("[Lua] Invalid BoxComponent.Extent Access.");
-					return;
-				}
-
-				Box->SetBoxExtent(Extent);
-			}
+		LUA_COMPONENT_RW_PROPERTY(
+			"BoxComponent",
+			"Extent",
+			FLuaBoxComponentHandle,
+			UBoxComponent,
+			FVector,
+			FVector::ZeroVector,
+			GetBoxExtent(),
+			SetBoxExtent(Value)
 		)
 	);
 }
+
 void RegisterSphereComponentBinding(sol::state& Lua)
 {
 	Lua.new_usertype<FLuaSphereComponentHandle>(
@@ -397,32 +619,21 @@ void RegisterSphereComponentBinding(sol::state& Lua)
 
 		sol::no_constructor,
 
-		"IsValid",
-		[](const FLuaSphereComponentHandle& Handle) { return Handle.IsValid(); },
+		LUA_HANDLE_COMMON(FLuaSphereComponentHandle),
 
-		"UUID",
-		sol::property([](const FLuaSphereComponentHandle& Self) { return Self.UUID; }),
-
-		"Radius",
-		sol::property(
-			[](const FLuaSphereComponentHandle& Self)
-			{
-				USphereComponent* Shape = Self.Resolve();
-				return Shape ? Shape->GetSphereRadius() : 0.0f;
-			},
-			[](const FLuaSphereComponentHandle& Self, float Radius)
-			{
-				USphereComponent* Shape = Self.Resolve();
-				if (!Shape)
-				{
-					UE_LOG("[Lua] Invalid SphereComponent.Radius Access.");
-					return;
-				}
-				Shape->SetSphereRadius(Radius);
-			}
+		LUA_COMPONENT_RW_PROPERTY(
+			"SphereComponent",
+			"Radius",
+			FLuaSphereComponentHandle,
+			USphereComponent,
+			float,
+			0.0f,
+			GetSphereRadius(),
+			SetSphereRadius(Value)
 		)
 	);
 }
+
 void RegisterCapsuleComponentBinding(sol::state& Lua)
 {
 	Lua.new_usertype<FLuaCapsuleComponentHandle>(
@@ -430,48 +641,28 @@ void RegisterCapsuleComponentBinding(sol::state& Lua)
 
 		sol::no_constructor,
 
-		"IsValid",
-		[](const FLuaCapsuleComponentHandle& Handle) { return Handle.IsValid(); },
+		LUA_HANDLE_COMMON(FLuaCapsuleComponentHandle),
 
-		"UUID",
-		sol::property([](const FLuaCapsuleComponentHandle& Self) { return Self.UUID; }),
-
-		"Radius",
-		sol::property(
-			[](const FLuaCapsuleComponentHandle& Self)
-			{
-				UCapsuleComponent* Capsule = Self.Resolve();
-				return Capsule ? Capsule->GetCapsuleRadius() : 0.0f;
-			},
-			[](const FLuaCapsuleComponentHandle& Self, float Radius)
-			{
-				UCapsuleComponent* Capsule = Self.Resolve();
-				if (!Capsule)
-				{
-					UE_LOG("[Lua] Invalid CapsuleComponent.Radius Access.");
-					return;
-				}
-				Capsule->SetCapsuleRadius(Radius);
-			}
+		LUA_COMPONENT_RW_PROPERTY(
+			"CapsuleComponent",
+			"Radius",
+			FLuaCapsuleComponentHandle,
+			UCapsuleComponent,
+			float,
+			0.0f,
+			GetCapsuleRadius(),
+			SetCapsuleRadius(Value)
 		),
 
-		"HalfHeight",
-		sol::property(
-			[](const FLuaCapsuleComponentHandle& Self)
-			{
-				UCapsuleComponent* Capsule = Self.Resolve();
-				return Capsule ? Capsule->GetCapsuleHalfHeight() : 0.0f;
-			},
-			[](const FLuaCapsuleComponentHandle& Self, float HalfHeight)
-			{
-				UCapsuleComponent* Capsule = Self.Resolve();
-				if (!Capsule)
-				{
-					UE_LOG("[Lua] Invalid CapsuleComponent.HalfHeight Access.");
-					return;
-				}
-				Capsule->SetCapsuleHalfHeight(HalfHeight);
-			}
+		LUA_COMPONENT_RW_PROPERTY(
+			"CapsuleComponent",
+			"HalfHeight",
+			FLuaCapsuleComponentHandle,
+			UCapsuleComponent,
+			float,
+			0.0f,
+			GetCapsuleHalfHeight(),
+			SetCapsuleHalfHeight(Value)
 		)
 	);
 }
