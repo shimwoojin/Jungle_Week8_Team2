@@ -60,7 +60,6 @@ private:
 private:
 	sol::state Lua;
 	bool bInitialized = false;
-	TArray<FWatchID> WatchIDs;
 	TArray<FSubscriptionID> WatchSubs;
 	TSet<FString> LoadedScripts;
 	TArray<FString> LoadedScriptOrder;

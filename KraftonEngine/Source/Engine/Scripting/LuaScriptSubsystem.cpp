@@ -72,15 +72,6 @@ void FLuaScriptSubsystem::Shutdown()
 	}
 	WatchSubs.clear();
 
-	for (FWatchID WatchID : WatchIDs)
-	{
-		if (WatchID != 0)
-		{
-			FDirectoryWatcher::Get().Unwatch(WatchID);
-		}
-	}
-	WatchIDs.clear();
-
 	Lua = sol::state();
 	LoadedScripts.clear();
 	LoadedScriptOrder.clear();
@@ -124,7 +115,6 @@ void FLuaScriptSubsystem::RegisterScriptDirectoryWatcher(const FString& ScriptSu
 	FWatchID WatchID = FDirectoryWatcher::Get().Watch(WatchDirectory, ScriptSubDirectory);
 	if (WatchID != 0)
 	{
-		WatchIDs.push_back(WatchID);
 		WatchSubs.push_back(FDirectoryWatcher::Get().Subscribe(WatchID,
 			[this](const TSet<FString>& Files) { OnScriptsChanged(Files); }));
 	}
