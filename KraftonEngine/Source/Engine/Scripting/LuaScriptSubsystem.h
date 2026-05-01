@@ -80,9 +80,14 @@ private:
 
 	FLuaActorBinding* FindActorBinding(uint32 ActorUUID);
 	const FLuaActorBinding* FindActorBinding(uint32 ActorUUID) const;
-  void InvokeActorFunction(const char* FunctionName, const sol::function& Function);
-	void InvokeActorFunction(const char* FunctionName, const sol::function& Function, float DeltaTime);
-	void InvokeActorFunction(const char* FunctionName, const sol::function& Function, const FLuaGameObjectHandle& OtherActor);
+	void StartCoroutine(const char* FunctionName, const sol::function& Function, uint32 OwnerUUID);
+	void StartCoroutine(const char* FunctionName, const sol::function& Function, uint32 OwnerUUID, float DeltaTime);
+	void StartCoroutine(const char* FunctionName, const sol::function& Function, uint32 OwnerUUID, const FLuaGameObjectHandle& OtherActor);
+	sol::thread CreateCoroutineThread(const sol::function& Function);
+	void ResumeCoroutine(sol::thread Thread, uint32 OwnerUUID, const FString& FunctionName, int ArgCount);
+	void HandleCoroutineResult(int Status, sol::thread Thread, lua_State* ThreadState, uint32 OwnerUUID, const FString& FunctionName);
+	void ScheduleCoroutineResume(float Delay, sol::thread Thread, uint32 OwnerUUID, const FString& FunctionName);
+	float ExtractYieldDelay(lua_State* ThreadState) const;
 
 private:
 	sol::state Lua;

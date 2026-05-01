@@ -524,7 +524,7 @@ bool FLuaScriptSubsystem::ReloadScriptsAtomically(const TSet<FString>& ReloadTar
 		}
 	}
 
- TMap<FString, TSet<FString>> NewScriptIncludes;
+	TMap<FString, TSet<FString>> NewScriptIncludes;
 	TMap<FString, FString> NewModulePaths;
 	TArray<std::pair<uint32, FString>> ActorBindingsToRestore;
 	ActorBindingsToRestore.reserve(ActorBindings.size());

@@ -631,7 +631,7 @@
     <ClInclude Include="Source\Engine\Runtime\WindowsApplication.h" />
     <ClInclude Include="Source\Engine\Runtime\WindowsWindow.h" />
     <ClInclude Include="Source\Engine\Runtime\resource.h" />
-      <ClInclude Include="Source\Engine\Scripting\LuaBindingHelper.h"/>
+    <ClInclude Include="Source\Engine\Scripting\LuaBindingHelper.h" />
     <ClInclude Include="Source\Engine\Scripting\LuaBindings.h" />
     <ClInclude Include="Source\Engine\Scripting\LuaHandles.h" />
     <ClInclude Include="Source\Engine\Scripting\LuaScriptSubsystem.h" />
@@ -865,6 +865,7 @@
     <ResourceCompile Include="KraftonEngine.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="LuaScripts\template.lua" />
     <None Include="VcpkgLua.props" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

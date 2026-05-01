@@ -252,7 +252,7 @@ void AActor::EndPlay()
 {
 	if (!bActorHasBegunPlay) return;
 	bActorHasBegunPlay = false;
-  FLuaScriptSubsystem::Get().CallActorEndPlay(this);
+	FLuaScriptSubsystem::Get().CallActorEndPlay(this);
 	FLuaScriptSubsystem::Get().UnbindActor(this);
 	PrimaryActorTick.UnRegisterTickFunction();
 
@@ -272,7 +272,7 @@ void AActor::Tick(float DeltaTime)
 	{
 		ActorComp->Tick(DeltaTime);
 	}*/
-   FLuaScriptSubsystem::Get().CallActorTick(this, DeltaTime);
+	FLuaScriptSubsystem::Get().CallActorTick(this, DeltaTime);
 }
 
 FRotator AActor::GetActorRotation() const
