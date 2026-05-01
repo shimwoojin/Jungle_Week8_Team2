@@ -402,6 +402,7 @@
     <ClCompile Include="Source\Engine\Runtime\WindowsApplication.cpp" />
     <ClCompile Include="Source\Engine\Runtime\WindowsWindow.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaBindings.cpp"/>
+    <ClCompile Include="Source\Engine\Scripting\LuaScriptSubsystem.cpp" />
     <ClCompile Include="Source\Engine\Serialization\SceneSaveManager.cpp" />
     <ClCompile Include="Source\Engine\Texture\Texture2D.cpp" />
     <ClCompile Include="Source\Engine\UI\SSplitter.cpp" />
@@ -619,6 +620,8 @@
     <ClInclude Include="Source\Engine\Runtime\resource.h" />
     <ClInclude Include="Source\Engine\Scripting\LuaBindings.h"/>
     <ClInclude Include="Source\Engine\Scripting\LuaHandles.h"/>
+    <ClInclude Include="Source\Engine\Scripting\LuaScriptSubsystem.h" />
+    <ClInclude Include="Source\Engine\Scripting\SolInclude.h" />
     <ClInclude Include="Source\Engine\Serialization\Archive.h" />
     <ClInclude Include="Source\Engine\Serialization\MemoryArchive.h" />
     <ClInclude Include="Source\Engine\Serialization\SceneSaveManager.h" />
@@ -846,9 +849,6 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="KraftonEngine.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Source\Engine\Scripting\LuaScriptSubsystem.cpp"/>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

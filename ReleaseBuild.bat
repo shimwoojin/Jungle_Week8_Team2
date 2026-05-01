@@ -6,6 +6,9 @@ set PROJECT_DIR=%SOLUTION_DIR%KraftonEngine
 set BUILD_OUTPUT=%PROJECT_DIR%\Bin\Release
 set RELEASE_DIR=%SOLUTION_DIR%ReleaseBuild
 
+:: Lua DLL
+set LUA_DLL=%SOLUTION_DIR%vcpkg_installed\x64-windows\bin\lua51.dll
+
 :: VS Developer 환경 로드 (msbuild PATH 등록)
 set VSWHERE="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 for /f "usebackq delims=" %%i in (`%VSWHERE% -latest -property installationPath`) do set VS_PATH=%%i
@@ -43,6 +46,13 @@ echo [3/3] Copying files...
 :: 실행 파일 (루트에)
 copy "%BUILD_OUTPUT%\KraftonEngine.exe" "%RELEASE_DIR%\" >nul
 
+:: lua51.dll
+if exist "%LUA_DLL%" (
+    copy "%LUA_DLL%" "%RELEASE_DIR%\" >nul
+) else (
+    echo WARNING: lua51.dll을 찾을 수 없습니다: "%LUA_DLL%"
+)
+
 :: Shaders
 xcopy "%PROJECT_DIR%\Shaders" "%RELEASE_DIR%\Shaders\" /e /i /q >nul
 
@@ -62,6 +72,7 @@ echo ============================================
 echo.
 echo  ReleaseBuild/
 echo    KraftonEngine.exe
+echo    lua51.dll
 echo    Shaders/
 echo    Asset/
 echo    Data/

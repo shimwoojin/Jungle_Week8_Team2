@@ -3,7 +3,7 @@
 #define SOL_ALL_SAFETIES_ON 1
 #define SOL_LUAJIT 1
 
-#include <sol/sol.hpp>
+#include "SolInclude.h"
 
 #include "LuaHandles.h"
 
@@ -14,7 +14,6 @@
 #include "Component/ActorComponent.h"
 #include "Component/StaticMeshComponent.h"
 #include "Component/Movement/ProjectileMovementComponent.h"
-#include <sol/state_view.hpp>
 
 namespace
 {
