@@ -283,3 +283,87 @@ void RegisterRotatingMovementComponentBinding(sol::state& Lua)
 		)
 	);
 }
+
+void RegisterHopMovementComponentBinding(sol::state& Lua)
+{
+	Lua.new_usertype<FLuaHopMovementComponentHandle>(
+		"HopMovementComponent",
+
+		sol::no_constructor,
+
+		LUA_HANDLE_COMMON(FLuaHopMovementComponentHandle),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"HopMovementComponent",
+			"Velocity",
+			FLuaHopMovementComponentHandle,
+			UHopMovementComponent,
+			FVector,
+			FVector::ZeroVector,
+			GetVelocity(),
+			SetVelocity(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"HopMovementComponent",
+			"InitialSpeed",
+			FLuaHopMovementComponentHandle,
+			UHopMovementComponent,
+			float,
+			0.0f,
+			GetInitialSpeed(),
+			SetInitialSpeed(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"HopMovementComponent",
+			"MaxSpeed",
+			FLuaHopMovementComponentHandle,
+			UHopMovementComponent,
+			float,
+			0.0f,
+			GetMaxSpeed(),
+			SetMaxSpeed(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"HopMovementComponent",
+			"HopCoefficient",
+			FLuaHopMovementComponentHandle,
+			UHopMovementComponent,
+			float,
+			1.0f,
+			GetHopCoefficient(),
+			SetHopCoefficient(Value)
+		),
+
+		LUA_COMPONENT_RW_PROPERTY(
+			"HopMovementComponent",
+			"HopHeight",
+			FLuaHopMovementComponentHandle,
+			UHopMovementComponent,
+			float,
+			0.0f,
+			GetHopHeight(),
+			SetHopHeight(Value)
+		),
+
+		LUA_COMPONENT_RO_PROPERTY(
+			"HopMovementComponent",
+			"PreviewVelocity",
+			FLuaHopMovementComponentHandle,
+			UHopMovementComponent,
+			FVector,
+			FVector::ZeroVector,
+			GetPreviewVelocity()
+		),
+
+		LUA_COMPONENT_METHOD(
+			"HopMovementComponent",
+			"StopSimulating",
+			FLuaHopMovementComponentHandle,
+			UHopMovementComponent,
+			StopSimulating()
+		)
+	);
+}
