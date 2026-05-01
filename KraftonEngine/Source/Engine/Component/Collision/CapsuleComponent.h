@@ -5,6 +5,7 @@
 class UCapsuleComponent : public UShapeComponent
 {
 public:
+	DECLARE_CLASS(UCapsuleComponent, UShapeComponent)
 	virtual ECollisionShapeType GetCollisionShapeType() const override
 	{
 		return ECollisionShapeType::Capsule;

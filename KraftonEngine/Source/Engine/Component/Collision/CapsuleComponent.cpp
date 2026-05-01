@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cmath>
 
+IMPLEMENT_CLASS(UCapsuleComponent, UShapeComponent)
+
 namespace
 {
 	constexpr int32 DebugCircleSegments = 32;

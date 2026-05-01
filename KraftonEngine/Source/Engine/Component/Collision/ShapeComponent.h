@@ -6,6 +6,7 @@ class FScene;
 class UShapeComponent : public UPrimitiveComponent
 {
 public:
+	DECLARE_CLASS(UShapeComponent, UPrimitiveComponent)
 	const FColor& GetDebugShapeColor() const { return DebugShapeColor; }
 	bool GetDrawDebugOnlyIfSelected() const { return bDrawDebugOnlyIfSelected; }
 

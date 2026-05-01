@@ -3,6 +3,8 @@
 #include "Render/Scene/FScene.h"
 #include <cmath>
 
+IMPLEMENT_CLASS(UBoxComponent, UShapeComponent)
+
 namespace
 {
 	void AddBoxLines(FScene& Scene, const FVector (&P)[8], const FColor& Color)

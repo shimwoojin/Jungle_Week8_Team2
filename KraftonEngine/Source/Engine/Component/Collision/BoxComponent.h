@@ -6,6 +6,7 @@
 class UBoxComponent : public UShapeComponent
 {
 public:
+	DECLARE_CLASS(UBoxComponent, UShapeComponent)
 	virtual ECollisionShapeType GetCollisionShapeType() const override
 	{
 		return ECollisionShapeType::Box;

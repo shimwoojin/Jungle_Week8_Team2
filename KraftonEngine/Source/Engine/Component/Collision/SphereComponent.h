@@ -5,6 +5,7 @@
 class USphereComponent : public UShapeComponent
 {
 public:
+	DECLARE_CLASS(USphereComponent, UShapeComponent)
 	virtual ECollisionShapeType GetCollisionShapeType() const override
 	{
 		return ECollisionShapeType::Sphere;
