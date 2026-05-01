@@ -3,6 +3,7 @@
 #include "Render/Scene/FScene.h"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 IMPLEMENT_CLASS(USphereComponent, UShapeComponent)
 
@@ -38,6 +39,22 @@ FBoundingBox USphereComponent::GetWorldAABB() const
 	const FVector Extent(Radius, Radius, Radius);
 
 	return FBoundingBox(Center - Extent, Center + Extent);
+}
+
+void USphereComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)
+{
+	UShapeComponent::GetEditableProperties(OutProps);
+	OutProps.push_back({ "Sphere Radius", EPropertyType::Float, &SphereRadius, 0.0f, 10000.0f, 1.0f });
+}
+
+void USphereComponent::PostEditProperty(const char* PropertyName)
+{
+	UShapeComponent::PostEditProperty(PropertyName);
+
+	if (strcmp(PropertyName, "Sphere Radius") == 0)
+	{
+		MarkWorldBoundsDirty();
+	}
 }
 
 void USphereComponent::DrawDebugShape(FScene& Scene, const FColor& Color) const

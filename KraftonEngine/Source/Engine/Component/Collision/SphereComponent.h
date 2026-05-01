@@ -13,10 +13,16 @@ public:
 
 	virtual FBoundingBox GetWorldAABB() const override;
 	void DrawDebugShape(FScene& Scene, const FColor& Color) const override;
+	void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
+	void PostEditProperty(const char* PropertyName) override;
 
 	float GetSphereRadius() const { return SphereRadius; }
-	void SetSphereRadius(float InRadius) { SphereRadius = InRadius; }
+	void SetSphereRadius(float InRadius)
+	{
+		SphereRadius = InRadius;
+		MarkWorldBoundsDirty();
+	}
 
 private:
-	float SphereRadius = 0.0f;
+	float SphereRadius = 0.5f;
 };

@@ -3,6 +3,7 @@
 #include "Render/Scene/FScene.h"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 IMPLEMENT_CLASS(UCapsuleComponent, UShapeComponent)
 
@@ -103,6 +104,24 @@ FBoundingBox UCapsuleComponent::GetWorldAABB() const
 
 	const FVector Expand(Radius, Radius, Radius);
 	return FBoundingBox(Min - Expand, Max + Expand);
+}
+
+void UCapsuleComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)
+{
+	UShapeComponent::GetEditableProperties(OutProps);
+	OutProps.push_back({ "Capsule Radius", EPropertyType::Float, &CapsuleRadius, 0.0f, 10000.0f, 1.0f });
+	OutProps.push_back({ "Capsule Half Height", EPropertyType::Float, &CapsuleHalfHeight, 0.0f, 10000.0f, 1.0f });
+}
+
+void UCapsuleComponent::PostEditProperty(const char* PropertyName)
+{
+	UShapeComponent::PostEditProperty(PropertyName);
+
+	if (strcmp(PropertyName, "Capsule Radius") == 0
+		|| strcmp(PropertyName, "Capsule Half Height") == 0)
+	{
+		MarkWorldBoundsDirty();
+	}
 }
 
 void UCapsuleComponent::DrawDebugShape(FScene& Scene, const FColor& Color) const
