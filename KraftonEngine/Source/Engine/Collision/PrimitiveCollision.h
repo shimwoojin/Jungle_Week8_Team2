@@ -9,6 +9,7 @@ class AActor;
 class UBoxComponent;
 class USphereComponent;
 class UCapsuleComponent;
+struct FOBB;
 
 struct FHitResult;
 struct FOverlapInfo;
@@ -28,6 +29,7 @@ private:
 	static bool IntersectSphereBox(const USphereComponent* Sphere, const UBoxComponent* Box);
 	static bool IntersectSphereCapsule(const USphereComponent* Sphere, const UCapsuleComponent* Capsule);
 	static bool IntersectBoxBox(const UBoxComponent* A, const UBoxComponent* B);
+	static bool IntersectOBBOBB(const FOBB& A, const FOBB& B);
 	static bool IntersectBoxCapsule(const UBoxComponent* Box, const UCapsuleComponent* Capsule);
 	static bool IntersectCapsuleCapsule(const UCapsuleComponent* A, const UCapsuleComponent* B);
 
