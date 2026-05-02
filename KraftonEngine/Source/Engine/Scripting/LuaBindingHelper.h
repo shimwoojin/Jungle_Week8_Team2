@@ -1,10 +1,10 @@
-#pragma once
+﻿#pragma once
 
 #include "Core/Log.h"
 #include "LuaWorldLibrary.h"
 
 #ifndef LUA_ENABLE_DEBUG_HANDLE_UUID
-#define LUA_ENABLE_DEBUG_HANDLE_UUID 0
+#define LUA_ENABLE_DEBUG_HANDLE_UUID 1
 #endif
 
 #if LUA_ENABLE_DEBUG_HANDLE_UUID
