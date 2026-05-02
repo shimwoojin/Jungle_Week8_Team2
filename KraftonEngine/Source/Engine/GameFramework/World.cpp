@@ -1,4 +1,4 @@
-﻿#include "GameFramework/World.h"
+#include "GameFramework/World.h"
 #include "Object/ObjectFactory.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/StaticMeshComponent.h"
@@ -589,13 +589,19 @@ APawn* UWorld::FindFirstPawn() const
 
 APlayerController* UWorld::CreatePlayerController()
 {
-	return SpawnActor<APlayerController>();
+	APlayerController* Controller = SpawnActor<APlayerController>();
+	if (Controller)
+	{
+		Controller->InitDefaultComponents();
+	}
+	return Controller;
 }
 
 APlayerController* UWorld::FindOrCreatePlayerController()
 {
 	if (APlayerController* Existing = GetPlayerController(0))
 	{
+		Existing->InitDefaultComponents();
 		return Existing;
 	}
 	return CreatePlayerController();

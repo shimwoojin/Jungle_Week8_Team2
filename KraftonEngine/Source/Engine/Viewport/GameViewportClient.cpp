@@ -1,4 +1,4 @@
-﻿#include "Viewport/GameViewportClient.h"
+#include "Viewport/GameViewportClient.h"
 
 #include "Component/CameraComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -9,6 +9,26 @@
 #include "Object/Object.h"
 
 #include <windows.h>
+
+namespace
+{
+	FRotator GetCameraWorldRotation(const UCameraComponent* Camera)
+	{
+		return Camera ? Camera->GetWorldMatrix().ToRotator() : FRotator();
+	}
+
+	void SyncControllerRotationFromCamera(APlayerController* Controller, UCameraComponent* Camera)
+	{
+		if (!Controller || !Camera)
+		{
+			return;
+		}
+
+		FRotator Rotation = GetCameraWorldRotation(Camera);
+		Rotation.Roll = 0.0f;
+		Controller->SetControlRotation(Rotation);
+	}
+}
 
 DEFINE_CLASS(UGameViewportClient, UObject)
 
@@ -83,6 +103,7 @@ void UGameViewportClient::SetPlayerController(APlayerController* InController)
 		return;
 	}
 	PlayerController = InController;
+	SyncControllerRotationFromCamera(PlayerController, GetPossessedTarget());
 	ResetInputState();
 }
 
@@ -94,6 +115,7 @@ void UGameViewportClient::Possess(UCameraComponent* TargetCamera)
 	}
 
 	PossessedCamera = TargetCamera;
+	SyncControllerRotationFromCamera(PlayerController, GetPossessedTarget());
 	ResetInputState();
 }
 
@@ -177,25 +199,45 @@ bool UGameViewportClient::ApplyMovementInput(float DeltaTime, const FInputSystem
 			MoveInput = MoveInput.Normalized();
 
 			UCameraComponent* TargetCamera = GetPossessedTarget();
-			FVector FlatForward = TargetCamera ? TargetCamera->GetForwardVector() : FVector(1, 0, 0);
-			FVector FlatRight = TargetCamera ? TargetCamera->GetRightVector() : FVector(0, 1, 0);
-			FlatForward.Z = 0.0f;
-			FlatRight.Z = 0.0f;
-			if (!FlatForward.IsNearlyZero())
+			APlayerController* SafeController = IsAliveObject(PlayerController) ? PlayerController : nullptr;
+
+			FVector MoveForward = FVector::ForwardVector;
+			FVector MoveRight = FVector::RightVector;
+			const bool bUseCameraFrame = !SafeController
+				|| SafeController->GetMovementFrame() == EControllerMovementFrame::Camera;
+
+			if (bUseCameraFrame && TargetCamera)
 			{
-				FlatForward = FlatForward.Normalized();
+				// Camera-relative movement uses the camera yaw plane. Vertical movement remains E/Q or Space/Ctrl.
+				MoveForward = TargetCamera->GetForwardVector();
+				MoveRight = TargetCamera->GetRightVector();
+				MoveForward.Z = 0.0f;
+				MoveRight.Z = 0.0f;
 			}
-			if (!FlatRight.IsNearlyZero())
+
+			if (!MoveForward.IsNearlyZero())
 			{
-				FlatRight = FlatRight.Normalized();
+				MoveForward = MoveForward.Normalized();
+			}
+			else
+			{
+				MoveForward = FVector::ForwardVector;
+			}
+
+			if (!MoveRight.IsNearlyZero())
+			{
+				MoveRight = MoveRight.Normalized();
+			}
+			else
+			{
+				MoveRight = FVector::RightVector;
 			}
 
 			const float SafeDeltaTime = (DeltaTime > 0.0f) ? DeltaTime : (1.0f / 60.0f);
 			const float SpeedBoost = Snapshot.IsDown(VK_SHIFT) ? InputSettings.SprintMultiplier : 1.0f;
-			const FVector WorldDelta = (FlatForward * MoveInput.X + FlatRight * MoveInput.Y + FVector::UpVector * MoveInput.Z)
+			const FVector WorldDelta = (MoveForward * MoveInput.X + MoveRight * MoveInput.Y + FVector::UpVector * MoveInput.Z)
 				* (InputSettings.MoveSpeed * SpeedBoost * SafeDeltaTime);
 
-			APlayerController* SafeController = IsAliveObject(PlayerController) ? PlayerController : nullptr;
 			if (SafeController)
 			{
 				if (APawn* Pawn = SafeController->GetPawn())
@@ -246,17 +288,26 @@ bool UGameViewportClient::ApplyLookInput(const FInputSystemSnapshot& Snapshot)
 		if (SafeController)
 		{
 			SafeController->SetControlRotation(Rotation);
-			if (APawn* Pawn = SafeController->GetPawn())
+
+			APawn* Pawn = SafeController->GetPawn();
+			UCameraComponent* PawnCamera = Pawn ? Pawn->FindPawnCamera() : nullptr;
+			const EControllerLookMode LookMode = SafeController->GetLookMode();
+			const bool bUsePawnYawPawnPitch = Pawn != nullptr
+				&& (LookMode == EControllerLookMode::PawnYawPawnPitch
+					|| (LookMode == EControllerLookMode::Auto && PawnCamera == TargetCamera));
+
+			if (bUsePawnYawPawnPitch)
 			{
-				Pawn->SetActorRotation(FVector(0.0f, Rotation.Yaw, 0.0f));
-				if (UCameraComponent* PawnCamera = Pawn->FindPawnCamera())
-				{
-					PawnCamera->SetRelativeRotation(FRotator(Rotation.Pitch, 0.0f, 0.0f));
-					return true;
-				}
+				// Pawn-owned camera mode rotates the Pawn itself on both yaw and pitch.
+				// A child camera inherits that rotation; separated view cameras still use
+				// the CameraOnly path below.
+				Pawn->SetActorRotation(FRotator(Rotation.Pitch, Rotation.Yaw, 0.0f));
+				return true;
 			}
 		}
 
+		// CameraOnly and Auto-with-separated-camera both rotate only the view camera.
+		// This prevents a possessed Pawn/object from turning when the ViewTarget camera is separate.
 		TargetCamera->SetRelativeRotation(Rotation);
 		return true;
 	}

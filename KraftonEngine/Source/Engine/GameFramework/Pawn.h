@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "GameFramework/AActor.h"
 
 class APlayerController;
@@ -12,6 +12,7 @@ public:
 	APawn() = default;
 	~APawn() override = default;
 
+	void InitDefaultComponents() override;
 	void EndPlay() override;
 
 	void SetController(APlayerController* InController) { Controller = InController; }

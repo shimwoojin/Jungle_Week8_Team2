@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <string>
 #include <filesystem>
@@ -30,8 +30,11 @@ struct FPerspectiveCameraData
 	FVector Location = FVector(0, 0, 0);
 	FVector Rotation = FVector(0, 0, 0); // Euler (Roll, Pitch, Yaw) in degrees
 	float   FOV      = 3.14159265f / 3.0f;
+	float   AspectRatio = 16.0f / 9.0f;
 	float   NearClip = 0.1f;
 	float   FarClip  = 1000.0f;
+	float   OrthoWidth = 10.0f;
+	bool    bOrthographic = false;
 	bool    bValid   = false;
 };
 
@@ -52,6 +55,7 @@ private:
 	static json::JSON SerializeWorld(UWorld* World, const FWorldContext& Ctx, UCameraComponent* PerspectiveCam);
 	static json::JSON SerializeActor(AActor* Actor);
 	static json::JSON SerializeSceneComponentTree(USceneComponent* Comp);
+	static json::JSON SerializeProperties(AActor* Actor);
 	static json::JSON SerializeProperties(UActorComponent* Comp);
 	static json::JSON SerializePropertyValue(const FPropertyDescriptor& Prop);
 
@@ -65,6 +69,7 @@ private:
 	// ---- Deserialization helpers ----
 	static void DeserializeSceneComponentIntoExisting(USceneComponent* Existing, json::JSON& Node, AActor* Owner);
 	static USceneComponent* DeserializeSceneComponentTree(json::JSON& Node, AActor* Owner);
+	static void DeserializeProperties(AActor* Actor, json::JSON& PropsJSON);
 	static void DeserializeProperties(UActorComponent* Comp, json::JSON& PropsJSON);
 	static void DeserializePropertyValue(FPropertyDescriptor& Prop, json::JSON& Value);
 

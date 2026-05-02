@@ -1,4 +1,4 @@
-﻿#include "Editor/Viewport/FLevelViewportLayout.h"
+#include "Editor/Viewport/FLevelViewportLayout.h"
 
 #include "Editor/EditorEngine.h"
 #include "Editor/Viewport/LevelEditorViewportClient.h"
@@ -2075,11 +2075,7 @@ AActor* FLevelViewportLayout::SpawnActorFromViewportMenu(EViewportPlaceActorType
 		APawn* Actor = World->SpawnActor<APawn>();
 		if (Actor)
 		{
-			if (!Actor->GetRootComponent())
-			{
-				USceneComponent* Root = Actor->AddComponent<USceneComponent>();
-				if (Root) Actor->SetRootComponent(Root);
-			}
+			Actor->InitDefaultComponents();
 			SpawnedActor = Actor;
 		}
 		break;
@@ -2089,11 +2085,7 @@ AActor* FLevelViewportLayout::SpawnActorFromViewportMenu(EViewportPlaceActorType
 		APlayerController* Actor = World->SpawnActor<APlayerController>();
 		if (Actor)
 		{
-			if (!Actor->GetRootComponent())
-			{
-				USceneComponent* Root = Actor->AddComponent<USceneComponent>();
-				if (Root) Actor->SetRootComponent(Root);
-			}
+			Actor->InitDefaultComponents();
 			SpawnedActor = Actor;
 		}
 		break;

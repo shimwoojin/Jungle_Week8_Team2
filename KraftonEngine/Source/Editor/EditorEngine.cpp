@@ -1,4 +1,4 @@
-﻿#include "Editor/EditorEngine.h"
+#include "Editor/EditorEngine.h"
 
 #include "Profiling/StartupProfiler.h"
 #include "Core/Notification.h"
@@ -607,8 +607,11 @@ void UEditorEngine::RestoreViewportCamera(const FPerspectiveCameraData& CamData)
 		Camera->SetRelativeRotation(CamData.Rotation);
 		FCameraState CameraState = Camera->GetCameraState();
 		CameraState.FOV = CamData.FOV;
+		CameraState.AspectRatio = CamData.AspectRatio;
 		CameraState.NearZ = CamData.NearClip;
 		CameraState.FarZ = CamData.FarClip;
+		CameraState.OrthoWidth = CamData.OrthoWidth;
+		CameraState.bIsOrthogonal = CamData.bOrthographic;
 		Camera->SetCameraState(CameraState);
 	}
 }

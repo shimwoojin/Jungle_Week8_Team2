@@ -101,6 +101,55 @@ void RegisterPlayerControllerBinding(sol::state& Lua)
 				return;
 			}
 			Controller->SetControlRotation(Rotation);
-		}
+		},
+
+		"MovementFrame",
+		sol::property(
+			[](const FLuaPlayerControllerHandle& Self) -> int
+			{
+				APlayerController* Controller = Self.Resolve();
+				return Controller ? static_cast<int>(Controller->GetMovementFrame()) : 0;
+			},
+			[](const FLuaPlayerControllerHandle& Self, int Frame)
+			{
+				APlayerController* Controller = Self.Resolve();
+				if (!Controller)
+				{
+					UE_LOG("[Lua] Invalid PlayerController.MovementFrame Access.");
+					return;
+				}
+				Controller->SetMovementFrame(Frame == 0 ? EControllerMovementFrame::World : EControllerMovementFrame::Camera);
+			}
+		),
+
+		"LookMode",
+		sol::property(
+			[](const FLuaPlayerControllerHandle& Self) -> int
+			{
+				APlayerController* Controller = Self.Resolve();
+				return Controller ? static_cast<int>(Controller->GetLookMode()) : 0;
+			},
+			[](const FLuaPlayerControllerHandle& Self, int Mode)
+			{
+				APlayerController* Controller = Self.Resolve();
+				if (!Controller)
+				{
+					UE_LOG("[Lua] Invalid PlayerController.LookMode Access.");
+					return;
+				}
+				if (Mode <= 0)
+				{
+					Controller->SetLookMode(EControllerLookMode::Auto);
+				}
+				else if (Mode == 1)
+				{
+					Controller->SetLookMode(EControllerLookMode::CameraOnly);
+				}
+				else
+				{
+					Controller->SetLookMode(EControllerLookMode::PawnYawPawnPitch);
+				}
+			}
+		)
 	);
 }

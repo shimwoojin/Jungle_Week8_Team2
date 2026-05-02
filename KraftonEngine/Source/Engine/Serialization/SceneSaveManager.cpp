@@ -1,4 +1,4 @@
-﻿#include "SceneSaveManager.h"
+#include "SceneSaveManager.h"
 
 #include <iostream>
 #include <fstream>
@@ -250,6 +250,12 @@ json::JSON FSceneSaveManager::SerializeActor(AActor* Actor)
 	a[SceneKeys::ClassName] = Actor->GetClass()->GetName();
 	a[SceneKeys::Visible] = Actor->IsVisible();
 
+	JSON ActorProps = SerializeProperties(Actor);
+	if (ActorProps.size() > 0)
+	{
+		a[SceneKeys::Properties] = ActorProps;
+	}
+
 	// RootComponent 트리 직렬화
 	if (Actor->GetRootComponent()) {
 		a[SceneKeys::RootComponent] = SerializeSceneComponentTree(Actor->GetRootComponent());
@@ -290,10 +296,32 @@ json::JSON FSceneSaveManager::SerializeSceneComponentTree(USceneComponent* Comp)
 	return c;
 }
 
+json::JSON FSceneSaveManager::SerializeProperties(AActor* Actor)
+{
+	using namespace json;
+	JSON props = json::Object();
+	if (!Actor)
+	{
+		return props;
+	}
+
+	TArray<FPropertyDescriptor> Descriptors;
+	Actor->GetEditableProperties(Descriptors);
+
+	for (const auto& Prop : Descriptors) {
+		props[Prop.Name] = SerializePropertyValue(Prop);
+	}
+	return props;
+}
+
 json::JSON FSceneSaveManager::SerializeProperties(UActorComponent* Comp)
 {
 	using namespace json;
 	JSON props = json::Object();
+	if (!Comp)
+	{
+		return props;
+	}
 
 	TArray<FPropertyDescriptor> Descriptors;
 	Comp->GetEditableProperties(Descriptors);
@@ -398,8 +426,11 @@ json::JSON FSceneSaveManager::SerializeCamera(UCameraComponent* Cam)
 
 	const FCameraState& S = Cam->GetCameraState();
 	cam["FOV"] = static_cast<double>(S.FOV);
+	cam["AspectRatio"] = static_cast<double>(S.AspectRatio);
 	cam["NearClip"] = static_cast<double>(S.NearZ);
 	cam["FarClip"] = static_cast<double>(S.FarZ);
+	cam["Orthographic"] = S.bIsOrthogonal;
+	cam["OrthoWidth"] = static_cast<double>(S.OrthoWidth);
 
 	return cam;
 }
@@ -479,6 +510,10 @@ void FSceneSaveManager::DeserializeCamera(json::JSON& CameraJSON, FPerspectiveCa
 		if (fov > 3.14159265f) fov *= (3.14159265f / 180.0f);
 		OutCam.FOV = fov;
 	}
+	if (CameraJSON.hasKey("AspectRatio")) {
+		auto& Val = CameraJSON["AspectRatio"];
+		OutCam.AspectRatio = static_cast<float>(Val.JSONType() == JSON::Class::Array ? Val[0].ToFloat() : Val.ToFloat());
+	}
 	if (CameraJSON.hasKey("NearClip")) {
 		auto& Val = CameraJSON["NearClip"];
 		OutCam.NearClip = static_cast<float>(Val.JSONType() == JSON::Class::Array ? Val[0].ToFloat() : Val.ToFloat());
@@ -486,6 +521,13 @@ void FSceneSaveManager::DeserializeCamera(json::JSON& CameraJSON, FPerspectiveCa
 	if (CameraJSON.hasKey("FarClip")) {
 		auto& Val = CameraJSON["FarClip"];
 		OutCam.FarClip = static_cast<float>(Val.JSONType() == JSON::Class::Array ? Val[0].ToFloat() : Val.ToFloat());
+	}
+	if (CameraJSON.hasKey("Orthographic")) {
+		OutCam.bOrthographic = CameraJSON["Orthographic"].ToBool();
+	}
+	if (CameraJSON.hasKey("OrthoWidth")) {
+		auto& Val = CameraJSON["OrthoWidth"];
+		OutCam.OrthoWidth = static_cast<float>(Val.JSONType() == JSON::Class::Array ? Val[0].ToFloat() : Val.ToFloat());
 	}
 	OutCam.bValid = true;
 }
@@ -570,6 +612,11 @@ void FSceneSaveManager::LoadSceneFromJSON(const string& filepath, FWorldContext&
 				Actor->SetVisible(ActorJSON[SceneKeys::Visible].ToBool());
 			}
 
+			if (ActorJSON.hasKey(SceneKeys::Properties)) {
+				JSON& PropsJSON = ActorJSON[SceneKeys::Properties];
+				DeserializeProperties(Actor, PropsJSON);
+			}
+
 			// RootComponent 트리 복원
 			if (ActorJSON.hasKey(SceneKeys::RootComponent)) {
 				JSON& RootJSON = ActorJSON[SceneKeys::RootComponent];
@@ -581,6 +628,11 @@ void FSceneSaveManager::LoadSceneFromJSON(const string& filepath, FWorldContext&
 					USceneComponent* Root = DeserializeSceneComponentTree(RootJSON, Actor);
 					if (Root) Actor->SetRootComponent(Root);
 				}
+			}
+
+			if (!Actor->GetRootComponent())
+			{
+				Actor->InitDefaultComponents();
 			}
 
 			// Non-scene components 복원
@@ -676,8 +728,25 @@ void FSceneSaveManager::DeserializeSceneComponentIntoExisting(USceneComponent* E
 	EnsureEditorBillboardMetadata(Existing);
 }
 
+void FSceneSaveManager::DeserializeProperties(AActor* Actor, json::JSON& PropsJSON)
+{
+	if (!Actor) return;
+
+	TArray<FPropertyDescriptor> Descriptors;
+	Actor->GetEditableProperties(Descriptors);
+
+	for (auto& Prop : Descriptors) {
+		if (!PropsJSON.hasKey(Prop.Name.c_str())) continue;
+		json::JSON& Value = PropsJSON[Prop.Name.c_str()];
+		DeserializePropertyValue(Prop, Value);
+		Actor->PostEditProperty(Prop.Name.c_str());
+	}
+}
+
 void FSceneSaveManager::DeserializeProperties(UActorComponent* Comp, json::JSON& PropsJSON)
 {
+	if (!Comp) return;
+
 	TArray<FPropertyDescriptor> Descriptors;
 	Comp->GetEditableProperties(Descriptors);
 

@@ -1,4 +1,4 @@
-﻿#include "Editor/UI/EditorPropertyWidget.h"
+#include "Editor/UI/EditorPropertyWidget.h"
 
 #include "Editor/EditorEngine.h"
 #include "Editor/UI/EditorFileUtils.h"
@@ -472,12 +472,29 @@ void FEditorPropertyWidget::RenderActorProperties(AActor* PrimaryActor, const TA
 		PrimaryActor->SetVisible(bVisible);
 	}
 
+	TArray<FPropertyDescriptor> ActorProps;
+	PrimaryActor->GetEditableProperties(ActorProps);
+	if (!ActorProps.empty())
+	{
+		ImGui::Separator();
+		ImGui::Text("Actor Properties");
+		for (int32 i = 0; i < (int32)ActorProps.size(); ++i)
+		{
+			if (RenderPropertyWidget(ActorProps, i))
+			{
+				PrimaryActor->PostEditProperty(ActorProps[i].Name.c_str());
+			}
+		}
+	}
+
 	// PlayerController — Pawn Possess / ViewTarget 연결
 	if (APlayerController* PC = Cast<APlayerController>(PrimaryActor))
 	{
 		SEPARATOR();
 		ImGui::Text("PlayerController");
 		ImGui::Separator();
+
+		ImGui::TextDisabled("Auto: pawn-owned view camera = pawn, separated view camera = camera.");
 
 		// 현재 Possess 중인 Pawn 표시
 		APawn* CurPawn = PC->GetPawn();

@@ -1,8 +1,20 @@
-﻿#include "Component/CameraComponent.h"
+#include "Component/CameraComponent.h"
 #include "Object/ObjectFactory.h"
+#include "Serialization/Archive.h"
 #include <cmath>
 
 IMPLEMENT_CLASS(UCameraComponent, USceneComponent)
+
+void UCameraComponent::Serialize(FArchive& Ar)
+{
+	USceneComponent::Serialize(Ar);
+	Ar << CameraState.FOV;
+	Ar << CameraState.AspectRatio;
+	Ar << CameraState.NearZ;
+	Ar << CameraState.FarZ;
+	Ar << CameraState.OrthoWidth;
+	Ar << CameraState.bIsOrthogonal;
+}
 
 FMatrix UCameraComponent::GetViewMatrix() const
 {
@@ -53,6 +65,10 @@ void UCameraComponent::LookAt(const FVector& Target)
 
 void UCameraComponent::OnResize(int32 Width, int32 Height)
 {
+	if (Width <= 0 || Height <= 0)
+	{
+		return;
+	}
 	CameraState.AspectRatio = static_cast<float>(Width) / static_cast<float>(Height);
 }
 
@@ -88,9 +104,10 @@ FRay UCameraComponent::DeprojectScreenToWorld(float MouseX, float MouseY, float 
 void UCameraComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)
 {
 	USceneComponent::GetEditableProperties(OutProps);
-	OutProps.push_back({ "FOV",         EPropertyType::Float, &CameraState.FOV, 0.1f,   3.14f,    0.01f });
-	OutProps.push_back({ "Near Z",      EPropertyType::Float, &CameraState.NearZ, 0.01f,  100.0f,   0.01f });
-	OutProps.push_back({ "Far Z",       EPropertyType::Float, &CameraState.FarZ, 1.0f,   100000.0f, 10.0f });
-	OutProps.push_back({ "Orthographic",EPropertyType::Bool,  &CameraState.bIsOrthogonal});
-	OutProps.push_back({ "Ortho Width", EPropertyType::Float, &CameraState.OrthoWidth, 0.1f,   1000.0f,  0.5f });
+	OutProps.push_back({ "FOV",          EPropertyType::Float, &CameraState.FOV, 0.1f,   3.14f,    0.01f });
+	OutProps.push_back({ "Aspect Ratio", EPropertyType::Float, &CameraState.AspectRatio, 0.01f,  10.0f,    0.01f });
+	OutProps.push_back({ "Near Z",       EPropertyType::Float, &CameraState.NearZ, 0.01f,  100.0f,   0.01f });
+	OutProps.push_back({ "Far Z",        EPropertyType::Float, &CameraState.FarZ, 1.0f,   100000.0f, 10.0f });
+	OutProps.push_back({ "Orthographic", EPropertyType::Bool,  &CameraState.bIsOrthogonal});
+	OutProps.push_back({ "Ortho Width",  EPropertyType::Float, &CameraState.OrthoWidth, 0.1f,   1000.0f,  0.5f });
 }

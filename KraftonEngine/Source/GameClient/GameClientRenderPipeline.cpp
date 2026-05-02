@@ -48,10 +48,10 @@ void FGameClientRenderPipeline::RenderGameViewport(FRenderer& Renderer)
 		return;
 	}
 
-	UCameraComponent* Camera = Engine->GetCameraManager().GetViewCamera();
+	UCameraComponent* Camera = Engine->GetCameraManager().ResolveViewCamera();
 	if (!Camera)
 	{
-		Camera = Engine->GetCameraManager().ResolveViewCamera();
+		Camera = Engine->GetCameraManager().GetViewCamera();
 	}
 	if (!Camera)
 	{

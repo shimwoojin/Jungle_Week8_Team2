@@ -62,15 +62,7 @@ void RegisterWorldExtendedBinding(sol::state& Lua)
 				return sol::nil;
 			}
 
-			// Pawn에 RootComponent가 없으면 SceneComponent 추가
-			if (!Pawn->GetRootComponent())
-			{
-				USceneComponent* Root = Pawn->AddComponent<USceneComponent>();
-				if (Root)
-				{
-					Pawn->SetRootComponent(Root);
-				}
-			}
+			Pawn->InitDefaultComponents();
 
 			if (MaybeLocation.has_value())
 			{

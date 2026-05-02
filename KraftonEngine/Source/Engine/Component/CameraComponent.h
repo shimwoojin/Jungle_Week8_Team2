@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "Engine/Core/RayTypes.h"
 #include "Object/ObjectFactory.h"
 #include "Component/SceneComponent.h"
@@ -24,6 +24,7 @@ public:
 
 	UCameraComponent() = default;
 
+	void Serialize(FArchive& Ar) override;
 	void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
 
 	void LookAt(const FVector& Target);
@@ -31,6 +32,9 @@ public:
 	const FCameraState& GetCameraState() const { return CameraState; }
 
 	void SetFOV(float InFOV) { CameraState.FOV = InFOV; }
+	void SetAspectRatio(float InAspectRatio) { if (InAspectRatio > 0.0f) CameraState.AspectRatio = InAspectRatio; }
+	void SetNearPlane(float InNearZ) { CameraState.NearZ = InNearZ; }
+	void SetFarPlane(float InFarZ) { CameraState.FarZ = InFarZ; }
 	void SetOrthoWidth(float InWidth) { CameraState.OrthoWidth = InWidth; }
 	void SetOrthographic(bool bOrtho) { CameraState.bIsOrthogonal = bOrtho; }
 
@@ -42,6 +46,7 @@ public:
 	FConvexVolume GetConvexVolume() const;
 
 	float GetFOV() const { return CameraState.FOV; }
+	float GetAspectRatio() const { return CameraState.AspectRatio; }
 	float GetNearPlane() const { return CameraState.NearZ; }
 	float GetFarPlane() const { return CameraState.FarZ; }
 	float GetOrthoWidth() const { return CameraState.OrthoWidth; }

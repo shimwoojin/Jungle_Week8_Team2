@@ -446,7 +446,7 @@ void FEditorMainPanel::RenderEditorDebugPanel()
 
 							if (bDebugRandomYaw)
 							{
-								SpawnedActor->SetActorRotation(FVector(0.0f, YawDist(RNG), 0.0f));
+								SpawnedActor->SetActorRotation(FRotator(0.0f, YawDist(RNG), 0.0f));
 							}
 
 							SpawnedActors.push_back(SpawnedActor);

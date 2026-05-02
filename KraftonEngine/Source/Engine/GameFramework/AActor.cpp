@@ -1,4 +1,4 @@
-﻿#include "GameFramework/AActor.h"
+#include "GameFramework/AActor.h"
 #include "Object/ObjectFactory.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/ActorComponent.h"
@@ -74,6 +74,13 @@ UActorComponent* AActor::AddComponentByClass(UClass* Class)
 
 	Comp->SetOwner(this);
 	OwnedComponents.push_back(Comp);
+	if (!RootComponent)
+	{
+		if (USceneComponent* SceneComponent = Cast<USceneComponent>(Comp))
+		{
+			RootComponent = SceneComponent;
+		}
+	}
 	bPrimitiveCacheDirty = true;
 	Comp->CreateRenderState();
 	return Comp;
@@ -88,6 +95,13 @@ void AActor::RegisterComponent(UActorComponent* Comp)
 		Comp->SetOwner(this);
 		Comp->SetOuter(this);
 		OwnedComponents.push_back(Comp);
+		if (!RootComponent)
+		{
+			if (USceneComponent* SceneComponent = Cast<USceneComponent>(Comp))
+			{
+				RootComponent = SceneComponent;
+			}
+		}
 		bPrimitiveCacheDirty = true;
 		Comp->CreateRenderState();
 	}
@@ -327,6 +341,16 @@ void AActor::Serialize(FArchive& Ar)
 	// 소유 포인터(OwnedComponents/RootComponent/Outer)는 직렬화 제외 — 복제 단계에서 재구성.
 	Ar << bVisible;
 	Ar << bNeedsTick;
+}
+
+void AActor::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)
+{
+	(void)OutProps;
+}
+
+void AActor::PostEditProperty(const char* PropertyName)
+{
+	(void)PropertyName;
 }
 
 // SceneComponent 서브트리를 재귀 복제. 부모 → 자식 순으로 만들되,

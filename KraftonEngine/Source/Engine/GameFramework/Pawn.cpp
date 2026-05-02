@@ -1,11 +1,25 @@
-﻿#include "GameFramework/Pawn.h"
+#include "GameFramework/Pawn.h"
 #include "Component/CameraComponent.h"
+#include "Component/StaticMeshComponent.h"
 #include "Component/ActorComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/World.h"
 #include <cmath>
 
 IMPLEMENT_CLASS(APawn, AActor)
+
+void APawn::InitDefaultComponents()
+{
+	if (GetRootComponent())
+	{
+		return;
+	}
+
+	if (UStaticMeshComponent* Root = AddComponent<UStaticMeshComponent>())
+	{
+		SetRootComponent(Root);
+	}
+}
 
 void APawn::EndPlay()
 {
