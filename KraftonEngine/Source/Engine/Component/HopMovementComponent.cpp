@@ -1,65 +1,64 @@
-﻿#include "HopMovementComponent.h"
+#include "HopMovementComponent.h"
 
 #include "Component/SceneComponent.h"
-#include "GameFramework/AActor.h"
 #include "Math/MathUtils.h"
 #include "Object/ObjectFactory.h"
 #include "Render/Scene/FScene.h"
 #include "Serialization/Archive.h"
 
 #include <cmath>
+#include <cstring>
 
 namespace
 {
-	FVector GetHopDirection(const UHopMovementComponent* MovementComponent)
+	constexpr float KInputTolerance = 1.0e-4f;
+	constexpr float KVelocityStopTolerance = 1.0e-3f;
+	constexpr float KMaxReasonableSpeed = 100000.0f;
+	constexpr float KMaxReasonableAcceleration = 1000000.0f;
+	constexpr float KMaxReasonableHopHeight = 100000.0f;
+	constexpr float KMaxReasonableHopFrequency = 240.0f;
+
+	FVector FlattenOnWorldUp(const FVector& Vector)
 	{
-		FVector Direction = MovementComponent ? MovementComponent->GetVelocity() : FVector(0.0f, 0.0f, 0.0f);
-
-		if (Direction.Length() <= FMath::Epsilon)
-		{
-			USceneComponent* SourceComponent = MovementComponent ? MovementComponent->GetUpdatedComponent() : nullptr;
-			if (!SourceComponent && MovementComponent)
-			{
-				AActor* OwnerActor = MovementComponent->GetOwner();
-				SourceComponent = OwnerActor ? OwnerActor->GetRootComponent() : nullptr;
-			}
-
-			if (SourceComponent)
-			{
-				Direction = SourceComponent->GetForwardVector();
-			}
-		}
-
-		const FVector WorldUp(0.0f, 0.0f, 1.0f);
-		Direction = Direction - WorldUp * Direction.Dot(WorldUp);
-
-		if (Direction.Length() <= FMath::Epsilon)
-		{
-			Direction = FVector(1.0f, 0.0f, 0.0f);
-		}
-
-		return Direction.Normalized();
+		return FVector(Vector.X, Vector.Y, 0.0f);
 	}
 
-	float GetEffectiveSpeed(float InitialSpeed, float MaxSpeed)
+	FVector ClampInputMagnitude(const FVector& Input)
 	{
-		float EffectiveSpeed = InitialSpeed;
-		if (EffectiveSpeed < 0.0f)
+		FVector FlatInput = FlattenOnWorldUp(Input);
+		const float Length = FlatInput.Length();
+		if (Length <= KInputTolerance)
 		{
-			EffectiveSpeed = 0.0f;
+			return FVector::ZeroVector;
 		}
 
-		if (MaxSpeed > 0.0f)
+		if (Length > 1.0f)
 		{
-			EffectiveSpeed = Clamp(EffectiveSpeed, 0.0f, MaxSpeed);
+			FlatInput /= Length;
 		}
-
-		return EffectiveSpeed;
+		return FlatInput;
 	}
 
-	float GetHopPhase(float ElapsedTime)
+	FVector MoveTowards(const FVector& Current, const FVector& Target, float MaxDelta)
 	{
-		const float CycleTime = std::fmod(ElapsedTime, 1.0f);
+		if (MaxDelta <= 0.0f)
+		{
+			return Target;
+		}
+
+		const FVector Delta = Target - Current;
+		const float DeltaLength = Delta.Length();
+		if (DeltaLength <= MaxDelta || DeltaLength <= KVelocityStopTolerance)
+		{
+			return Target;
+		}
+
+		return Current + (Delta / DeltaLength) * MaxDelta;
+	}
+
+	float GetHopPhase(float ElapsedTime, float Frequency)
+	{
+		const float CycleTime = std::fmod(ElapsedTime * Frequency, 1.0f);
 		return CycleTime >= 0.0f ? CycleTime : CycleTime + 1.0f;
 	}
 }
@@ -70,15 +69,11 @@ void UHopMovementComponent::BeginPlay()
 {
 	UMovementComponent::BeginPlay();
 
-	USceneComponent* UpdatedSceneComponent = GetUpdatedComponent();
-	if (!UpdatedSceneComponent)
-	{
-		return;
-	}
-
-	StartLocation = UpdatedSceneComponent->GetWorldLocation();
-	ElapsedTime = 0.0f;
-	bHasStartLocation = true;
+	HopElapsedTime = 0.0f;
+	AppliedHopOffset = 0.0f;
+	PendingMovementInput = FVector::ZeroVector;
+	LastMovementInput = FVector::ZeroVector;
+	Velocity = FlattenOnWorldUp(Velocity);
 	bSimulating = true;
 }
 
@@ -86,61 +81,97 @@ void UHopMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 {
 	UMovementComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (!bSimulating)
-	{
-		return;
-	}
-
 	USceneComponent* UpdatedSceneComponent = GetUpdatedComponent();
-	if (!UpdatedSceneComponent)
+	if (!bSimulating || !UpdatedSceneComponent || DeltaTime <= 0.0f)
 	{
+		PendingMovementInput = FVector::ZeroVector;
 		return;
 	}
 
-	if (!bHasStartLocation)
+	const FVector RawInput = ConsumeFrameMovementInput();
+	const FVector MoveInput = ClampInputMagnitude(RawInput);
+	const bool bHasMoveInput = MoveInput.Length() > KInputTolerance;
+
+	const float TargetSpeed = bHasMoveInput ? GetEffectiveMoveSpeed() : 0.0f;
+	const FVector TargetVelocity = MoveInput * TargetSpeed;
+	const float AccelRate = bHasMoveInput ? Acceleration : BrakingDeceleration;
+	const float ClampedAccelRate = Clamp(AccelRate, 0.0f, KMaxReasonableAcceleration);
+
+	Velocity = MoveTowards(FlattenOnWorldUp(Velocity), TargetVelocity, ClampedAccelRate * DeltaTime);
+	if (Velocity.Length() <= KVelocityStopTolerance)
 	{
-		StartLocation = UpdatedSceneComponent->GetWorldLocation();
-		bHasStartLocation = true;
+		Velocity = FVector::ZeroVector;
 	}
 
-	if (DeltaTime > 0.0f)
+	const bool bIsHorizontallyMoving = Velocity.Length() > KVelocityStopTolerance;
+	const bool bShouldApplyHop = (HopHeight > 0.0f && HopFrequency > 0.0f)
+		&& (!bHopOnlyWhenMoving || bHasMoveInput || bIsHorizontallyMoving);
+
+	float NewHopOffset = 0.0f;
+	if (bShouldApplyHop)
 	{
-		ElapsedTime += DeltaTime;
+		HopElapsedTime += DeltaTime;
+		const float Phase = GetHopPhase(HopElapsedTime, Clamp(HopFrequency, 0.0f, KMaxReasonableHopFrequency));
+		const float ClampedHopHeight = Clamp(HopHeight, 0.0f, KMaxReasonableHopHeight);
+		NewHopOffset = std::sin(Phase * FMath::Pi) * ClampedHopHeight;
+	}
+	else if (bResetHopWhenIdle)
+	{
+		HopElapsedTime = 0.0f;
 	}
 
-	const FVector Direction = GetHopDirection(this);
-	const float EffectiveSpeed = GetEffectiveSpeed(InitialSpeed, MaxSpeed);
-	const float HopScale = Clamp(HopCoefficient, 0.0f, 100.0f);
-	const float HopDistancePerSecond = EffectiveSpeed * HopScale;
-	const float HopHeightValue = Clamp(HopHeight, 0.0f, 100000.0f);
+	const float HopDelta = NewHopOffset - AppliedHopOffset;
+	AppliedHopOffset = NewHopOffset;
 
-	const float TravelDistance = HopDistancePerSecond * ElapsedTime;
-	const float HopPhase = GetHopPhase(ElapsedTime);
-	const float VerticalOffset = std::sin(HopPhase * FMath::Pi) * HopHeightValue;
-
-	const FVector NewLocation = StartLocation + (Direction * TravelDistance) + FVector(0.0f, 0.0f, VerticalOffset);
-	UpdatedSceneComponent->SetWorldLocation(NewLocation);
+	const FVector HorizontalDelta = Velocity * DeltaTime;
+	const FVector VerticalDelta(0.0f, 0.0f, HopDelta);
+	UpdatedSceneComponent->SetWorldLocation(UpdatedSceneComponent->GetWorldLocation() + HorizontalDelta + VerticalDelta);
 }
 
 void UHopMovementComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)
 {
 	UMovementComponent::GetEditableProperties(OutProps);
 	OutProps.push_back({ "Velocity", EPropertyType::Vec3, &Velocity, 0.0f, 0.0f, 1.0f });
-	OutProps.push_back({ "Initial Speed", EPropertyType::Float, &InitialSpeed, 0.0f, 0.0f, 10.0f });
-	OutProps.push_back({ "Max Speed", EPropertyType::Float, &MaxSpeed, 0.0f, 0.0f, 10.0f });
-	OutProps.push_back({ "Hop Coefficient", EPropertyType::Float, &HopCoefficient, 0.0f, 0.0f, 0.1f });
-	OutProps.push_back({ "Hop Height", EPropertyType::Float, &HopHeight, 0.0f, 0.0f, 1.0f });
+	OutProps.push_back({ "Initial Speed", EPropertyType::Float, &InitialSpeed, 0.0f, KMaxReasonableSpeed, 1.0f });
+	OutProps.push_back({ "Max Speed", EPropertyType::Float, &MaxSpeed, 0.0f, KMaxReasonableSpeed, 1.0f });
+	OutProps.push_back({ "Hop Coefficient", EPropertyType::Float, &HopCoefficient, 0.0f, 100.0f, 0.1f });
+	OutProps.push_back({ "Acceleration", EPropertyType::Float, &Acceleration, 0.0f, KMaxReasonableAcceleration, 10.0f });
+	OutProps.push_back({ "Braking Deceleration", EPropertyType::Float, &BrakingDeceleration, 0.0f, KMaxReasonableAcceleration, 10.0f });
+	OutProps.push_back({ "Hop Height", EPropertyType::Float, &HopHeight, 0.0f, KMaxReasonableHopHeight, 1.0f });
+	OutProps.push_back({ "Hop Frequency", EPropertyType::Float, &HopFrequency, 0.0f, KMaxReasonableHopFrequency, 0.1f });
+	OutProps.push_back({ "Hop Only When Moving", EPropertyType::Bool, &bHopOnlyWhenMoving });
+	OutProps.push_back({ "Reset Hop When Idle", EPropertyType::Bool, &bResetHopWhenIdle });
+	OutProps.push_back({ "Simulating", EPropertyType::Bool, &bSimulating });
 }
 
 void UHopMovementComponent::Serialize(FArchive& Ar)
 {
 	UMovementComponent::Serialize(Ar);
+
+	// Keep the old field order first for compatibility with existing binary archives.
 	Ar << Velocity;
 	Ar << InitialSpeed;
 	Ar << MaxSpeed;
 	Ar << HopCoefficient;
 	Ar << HopHeight;
 	Ar << bSimulating;
+
+	// New movement/hop configuration. Runtime input vectors are intentionally transient.
+	Ar << Acceleration;
+	Ar << BrakingDeceleration;
+	Ar << HopFrequency;
+	Ar << bHopOnlyWhenMoving;
+	Ar << bResetHopWhenIdle;
+
+	if (Ar.IsLoading())
+	{
+		MovementInput = FVector::ZeroVector;
+		PendingMovementInput = FVector::ZeroVector;
+		LastMovementInput = FVector::ZeroVector;
+		HopElapsedTime = 0.0f;
+		AppliedHopOffset = 0.0f;
+		Velocity = FlattenOnWorldUp(Velocity);
+	}
 }
 
 void UHopMovementComponent::ContributeSelectedVisuals(FScene& Scene) const
@@ -148,16 +179,110 @@ void UHopMovementComponent::ContributeSelectedVisuals(FScene& Scene) const
 	(void)Scene;
 }
 
+void UHopMovementComponent::SetMovementInput(const FVector& InWorldInput)
+{
+	MovementInput = ClampInputMagnitude(InWorldInput);
+}
+
+void UHopMovementComponent::ClearMovementInput()
+{
+	MovementInput = FVector::ZeroVector;
+	PendingMovementInput = FVector::ZeroVector;
+	LastMovementInput = FVector::ZeroVector;
+}
+
+void UHopMovementComponent::AddMovementInput(const FVector& WorldDirection, float Scale)
+{
+	if (Scale == 0.0f)
+	{
+		return;
+	}
+
+	const FVector Direction = ClampInputMagnitude(WorldDirection);
+	if (Direction.Length() <= KInputTolerance)
+	{
+		return;
+	}
+
+	PendingMovementInput += Direction * Scale;
+}
+
+void UHopMovementComponent::SetLocalMovementInput(const FVector& InLocalInput)
+{
+	SetMovementInput(BuildWorldInputFromLocal(InLocalInput));
+}
+
+void UHopMovementComponent::AddLocalMovementInput(const FVector& InLocalDirection, float Scale)
+{
+	AddMovementInput(BuildWorldInputFromLocal(InLocalDirection), Scale);
+}
+
+FVector UHopMovementComponent::BuildWorldInputFromLocal(const FVector& InLocalInput) const
+{
+	USceneComponent* BasisComponent = GetUpdatedComponent();
+	if (!BasisComponent)
+	{
+		return ClampInputMagnitude(InLocalInput);
+	}
+
+	const FVector Forward = ClampInputMagnitude(BasisComponent->GetForwardVector());
+	const FVector Right = ClampInputMagnitude(BasisComponent->GetRightVector());
+	return ClampInputMagnitude((Forward * InLocalInput.X) + (Right * InLocalInput.Y));
+}
+
+FVector UHopMovementComponent::ConsumeFrameMovementInput()
+{
+	const FVector CombinedInput = MovementInput + PendingMovementInput;
+	PendingMovementInput = FVector::ZeroVector;
+	LastMovementInput = ClampInputMagnitude(CombinedInput);
+	return LastMovementInput;
+}
+
+float UHopMovementComponent::GetEffectiveMoveSpeed() const
+{
+	const float BaseSpeed = Clamp(InitialSpeed, 0.0f, KMaxReasonableSpeed);
+	const float SpeedScale = Clamp(HopCoefficient, 0.0f, 100.0f);
+	const float SpeedCap = Clamp(MaxSpeed, 0.0f, KMaxReasonableSpeed);
+	const float ScaledSpeed = BaseSpeed * SpeedScale;
+	return SpeedCap > 0.0f ? Clamp(ScaledSpeed, 0.0f, SpeedCap) : ScaledSpeed;
+}
+
+void UHopMovementComponent::RemoveAppliedHopOffset()
+{
+	if (std::fabs(AppliedHopOffset) <= KVelocityStopTolerance)
+	{
+		AppliedHopOffset = 0.0f;
+		return;
+	}
+
+	if (USceneComponent* UpdatedSceneComponent = GetUpdatedComponent())
+	{
+		UpdatedSceneComponent->SetWorldLocation(
+			UpdatedSceneComponent->GetWorldLocation() + FVector(0.0f, 0.0f, -AppliedHopOffset));
+	}
+	AppliedHopOffset = 0.0f;
+}
+
+void UHopMovementComponent::StopMovementImmediately()
+{
+	ClearMovementInput();
+	Velocity = FVector::ZeroVector;
+	HopElapsedTime = 0.0f;
+	RemoveAppliedHopOffset();
+}
+
 void UHopMovementComponent::StopSimulating()
 {
 	bSimulating = false;
-	Velocity = FVector(0.0f, 0.0f, 0.0f);
+	StopMovementImmediately();
 }
 
 FVector UHopMovementComponent::GetPreviewVelocity() const
 {
-	const FVector Direction = GetHopDirection(this);
-	const float EffectiveSpeed = GetEffectiveSpeed(InitialSpeed, MaxSpeed);
-	const float HopScale = Clamp(HopCoefficient, 0.0f, 100.0f);
-	return Direction * (EffectiveSpeed * HopScale);
+	const FVector Input = ClampInputMagnitude(MovementInput + PendingMovementInput);
+	if (Input.Length() <= KInputTolerance)
+	{
+		return FVector::ZeroVector;
+	}
+	return Input * GetEffectiveMoveSpeed();
 }
