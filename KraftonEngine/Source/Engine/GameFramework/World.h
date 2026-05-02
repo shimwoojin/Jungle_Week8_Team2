@@ -2,6 +2,7 @@
 #include "Object/Object.h"
 #include "Core/RayTypes.h"
 #include "Core/CollisionTypes.h"
+#include "Collision/WorldCollisionSystem.h"
 #include "Collision/WorldCollisionBVH.h"
 #include "Collision/WorldPrimitivePickingBVH.h"
 #include "GameFramework/AActor.h"
@@ -84,6 +85,7 @@ public:
 	void UpdateActorInOctree(AActor* actor);
 
 	void UpdateCollision();
+	void ApplyCollisionDebugVisualization();
 
 private:
 	//TArray<AActor*> Actors;
@@ -95,7 +97,7 @@ private:
 	bool bHasBegunPlay = false;
 	bool bHasLastFullLODUpdateCameraPos = false;
 	mutable FWorldPrimitivePickingBVH WorldPrimitivePickingBVH;
-	mutable FWorldCollisionBVH WorldCollisionBVH;
+	mutable FWorldCollisionSystem WorldCollisionSystem{this};
 	int32 DeferredPickingBVHUpdateDepth = 0;
 	bool bDeferredPickingBVHDirty = false;
 	uint32 VisibleProxyBuildFrame = 0;
