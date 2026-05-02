@@ -21,6 +21,8 @@
 #include "Component/Movement/PendulumMovementComponent.h"
 #include "Component/Movement/RotatingMovementComponent.h"
 #include "Component/Movement/HopMovementComponent.h"
+#include "Component/Movement/PawnMovementComponent.h"
+#include "Component/ControllerInputComponent.h"
 #include "Component/StaticMeshComponent.h"
 
 #include "Mesh/ObjManager.h"
@@ -99,6 +101,7 @@ AActor* FLuaWorldLibrary::SpawnActorByClassName(const FString& ClassName, const 
 		return nullptr;
 	}
 
+	Actor->InitDefaultComponents();
 	EnsureRootComponent(Actor);
 	Actor->SetActorLocation(Location);
 	World->AddActor(Actor);
@@ -494,6 +497,12 @@ namespace
 			"aactor",
 			"staticmeshactor",
 			"astaticmeshactor",
+			"cameraactor",
+			"acameraactor",
+			"pawn",
+			"apawn",
+			"playercontroller",
+			"aplayercontroller",
 			"luaactor",
 			"aluaactor"
 		};
@@ -523,6 +532,8 @@ namespace
 			{ "sphere", USphereComponent::StaticClass(), true },
 			{ "capsule", UCapsuleComponent::StaticClass(), true },
 			{ "movement", UMovementComponent::StaticClass(), false },
+			{ "pawnmovement", UPawnMovementComponent::StaticClass(), true },
+			{ "controllerinput", UControllerInputComponent::StaticClass(), true },
 			{ "projectilemovement", UProjectileMovementComponent::StaticClass(), true },
 			{ "interptomovement", UInterpToMovementComponent::StaticClass(), true },
 			{ "pendulummovement", UPendulumMovementComponent::StaticClass(), true },

@@ -5,6 +5,7 @@
 
 #include "ImGui/imgui.h"
 #include "Component/ActorComponent.h"
+#include "Component/ControllerInputComponent.h"
 #include "Component/BillboardComponent.h"
 #include "Component/MeshComponent.h"
 #include "Component/Movement/MovementComponent.h"
@@ -472,21 +473,6 @@ void FEditorPropertyWidget::RenderActorProperties(AActor* PrimaryActor, const TA
 		PrimaryActor->SetVisible(bVisible);
 	}
 
-	TArray<FPropertyDescriptor> ActorProps;
-	PrimaryActor->GetEditableProperties(ActorProps);
-	if (!ActorProps.empty())
-	{
-		ImGui::Separator();
-		ImGui::Text("Actor Properties");
-		for (int32 i = 0; i < (int32)ActorProps.size(); ++i)
-		{
-			if (RenderPropertyWidget(ActorProps, i))
-			{
-				PrimaryActor->PostEditProperty(ActorProps[i].Name.c_str());
-			}
-		}
-	}
-
 	// PlayerController — Pawn Possess / ViewTarget 연결
 	if (APlayerController* PC = Cast<APlayerController>(PrimaryActor))
 	{
@@ -680,6 +666,7 @@ void FEditorPropertyWidget::RenderComponentTree(AActor* Actor)
 	TArray<FComponentClassGroup> ComponentGroups;
 	AddComponentClassGroup(ComponentGroups, "Light", ULightComponentBase::StaticClass());
 	AddComponentClassGroup(ComponentGroups, "Movement", UMovementComponent::StaticClass());
+	AddComponentClassGroup(ComponentGroups, "Input", UControllerInputComponent::StaticClass());
 	AddComponentClassGroup(ComponentGroups, "Collision", UShapeComponent::StaticClass());
 	AddComponentClassGroup(ComponentGroups, "Camera", UCameraComponent::StaticClass());
 	AddComponentClassGroup(ComponentGroups, "Primitive", UPrimitiveComponent::StaticClass());

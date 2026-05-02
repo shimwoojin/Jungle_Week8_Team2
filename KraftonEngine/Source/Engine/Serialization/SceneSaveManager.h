@@ -8,7 +8,6 @@
 #include "Math/Vector.h"
 
 // Forward declarations
-class UObject;
 class UWorld;
 class AActor;
 class UActorComponent;
@@ -55,7 +54,6 @@ private:
 	static json::JSON SerializeWorld(UWorld* World, const FWorldContext& Ctx, UCameraComponent* PerspectiveCam);
 	static json::JSON SerializeActor(AActor* Actor);
 	static json::JSON SerializeSceneComponentTree(USceneComponent* Comp);
-	static json::JSON SerializeProperties(AActor* Actor);
 	static json::JSON SerializeProperties(UActorComponent* Comp);
 	static json::JSON SerializePropertyValue(const FPropertyDescriptor& Prop);
 
@@ -69,7 +67,6 @@ private:
 	// ---- Deserialization helpers ----
 	static void DeserializeSceneComponentIntoExisting(USceneComponent* Existing, json::JSON& Node, AActor* Owner);
 	static USceneComponent* DeserializeSceneComponentTree(json::JSON& Node, AActor* Owner);
-	static void DeserializeProperties(AActor* Actor, json::JSON& PropsJSON);
 	static void DeserializeProperties(UActorComponent* Comp, json::JSON& PropsJSON);
 	static void DeserializePropertyValue(FPropertyDescriptor& Prop, json::JSON& Value);
 

@@ -1,0 +1,61 @@
+#include "Component/Movement/PawnMovementComponent.h"
+
+#include "Component/SceneComponent.h"
+#include "Object/ObjectFactory.h"
+#include "Serialization/Archive.h"
+
+#include <cmath>
+
+IMPLEMENT_CLASS(UPawnMovementComponent, UMovementComponent)
+
+void UPawnMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction& ThisTickFunction)
+{
+	UMovementComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	ApplyPendingMovement();
+}
+
+void UPawnMovementComponent::Serialize(FArchive& Ar)
+{
+	UMovementComponent::Serialize(Ar);
+}
+
+void UPawnMovementComponent::AddMovementInput(const FVector& Direction, float Scale)
+{
+	if (Scale == 0.0f)
+	{
+		return;
+	}
+	const float LenSq = Direction.X * Direction.X + Direction.Y * Direction.Y + Direction.Z * Direction.Z;
+	if (LenSq < 1e-8f)
+	{
+		return;
+	}
+	const float InvLen = 1.0f / sqrtf(LenSq);
+	PendingMovementInput.X += Direction.X * InvLen * Scale;
+	PendingMovementInput.Y += Direction.Y * InvLen * Scale;
+	PendingMovementInput.Z += Direction.Z * InvLen * Scale;
+}
+
+FVector UPawnMovementComponent::ConsumeMovementInputVector()
+{
+	FVector Result = PendingMovementInput;
+	PendingMovementInput = FVector::ZeroVector;
+	return Result;
+}
+
+void UPawnMovementComponent::ApplyPendingMovement()
+{
+	const FVector Delta = ConsumeMovementInputVector();
+	if (Delta.IsNearlyZero())
+	{
+		return;
+	}
+	if (!ResolveUpdatedComponent())
+	{
+		return;
+	}
+	if (USceneComponent* Scene = GetUpdatedComponent())
+	{
+		Scene->AddWorldOffset(Delta);
+	}
+}

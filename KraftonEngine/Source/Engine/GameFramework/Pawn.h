@@ -3,6 +3,7 @@
 
 class APlayerController;
 class UCameraComponent;
+class UPawnMovementComponent;
 
 class APawn : public AActor
 {
@@ -21,11 +22,11 @@ public:
 
 	void AddMovementInput(const FVector& Direction, float Scale = 1.0f);
 	FVector ConsumeMovementInputVector();
-	FVector GetPendingMovementInputVector() const { return PendingMovementInput; }
+	FVector GetPendingMovementInputVector() const;
 
 	UCameraComponent* FindPawnCamera() const;
+	UPawnMovementComponent* FindPawnMovementComponent() const;
 
 private:
 	APlayerController* Controller = nullptr;
-	FVector PendingMovementInput = FVector::ZeroVector;
 };

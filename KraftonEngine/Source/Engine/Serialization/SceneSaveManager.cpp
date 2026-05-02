@@ -250,12 +250,6 @@ json::JSON FSceneSaveManager::SerializeActor(AActor* Actor)
 	a[SceneKeys::ClassName] = Actor->GetClass()->GetName();
 	a[SceneKeys::Visible] = Actor->IsVisible();
 
-	JSON ActorProps = SerializeProperties(Actor);
-	if (ActorProps.size() > 0)
-	{
-		a[SceneKeys::Properties] = ActorProps;
-	}
-
 	// RootComponent 트리 직렬화
 	if (Actor->GetRootComponent()) {
 		a[SceneKeys::RootComponent] = SerializeSceneComponentTree(Actor->GetRootComponent());
@@ -296,23 +290,6 @@ json::JSON FSceneSaveManager::SerializeSceneComponentTree(USceneComponent* Comp)
 	return c;
 }
 
-json::JSON FSceneSaveManager::SerializeProperties(AActor* Actor)
-{
-	using namespace json;
-	JSON props = json::Object();
-	if (!Actor)
-	{
-		return props;
-	}
-
-	TArray<FPropertyDescriptor> Descriptors;
-	Actor->GetEditableProperties(Descriptors);
-
-	for (const auto& Prop : Descriptors) {
-		props[Prop.Name] = SerializePropertyValue(Prop);
-	}
-	return props;
-}
 
 json::JSON FSceneSaveManager::SerializeProperties(UActorComponent* Comp)
 {
@@ -612,11 +589,6 @@ void FSceneSaveManager::LoadSceneFromJSON(const string& filepath, FWorldContext&
 				Actor->SetVisible(ActorJSON[SceneKeys::Visible].ToBool());
 			}
 
-			if (ActorJSON.hasKey(SceneKeys::Properties)) {
-				JSON& PropsJSON = ActorJSON[SceneKeys::Properties];
-				DeserializeProperties(Actor, PropsJSON);
-			}
-
 			// RootComponent 트리 복원
 			if (ActorJSON.hasKey(SceneKeys::RootComponent)) {
 				JSON& RootJSON = ActorJSON[SceneKeys::RootComponent];
@@ -628,11 +600,6 @@ void FSceneSaveManager::LoadSceneFromJSON(const string& filepath, FWorldContext&
 					USceneComponent* Root = DeserializeSceneComponentTree(RootJSON, Actor);
 					if (Root) Actor->SetRootComponent(Root);
 				}
-			}
-
-			if (!Actor->GetRootComponent())
-			{
-				Actor->InitDefaultComponents();
 			}
 
 			// Non-scene components 복원
@@ -651,6 +618,11 @@ void FSceneSaveManager::LoadSceneFromJSON(const string& filepath, FWorldContext&
 					}
 					DeserializeComponentEditorMetadata(Comp, CompJSON);
 				}
+			}
+
+			if (!Actor->IsA<AStaticMeshActor>() || !Actor->GetRootComponent())
+			{
+				Actor->InitDefaultComponents();
 			}
 
 			World->RemoveActorToOctree(Actor);
@@ -728,20 +700,6 @@ void FSceneSaveManager::DeserializeSceneComponentIntoExisting(USceneComponent* E
 	EnsureEditorBillboardMetadata(Existing);
 }
 
-void FSceneSaveManager::DeserializeProperties(AActor* Actor, json::JSON& PropsJSON)
-{
-	if (!Actor) return;
-
-	TArray<FPropertyDescriptor> Descriptors;
-	Actor->GetEditableProperties(Descriptors);
-
-	for (auto& Prop : Descriptors) {
-		if (!PropsJSON.hasKey(Prop.Name.c_str())) continue;
-		json::JSON& Value = PropsJSON[Prop.Name.c_str()];
-		DeserializePropertyValue(Prop, Value);
-		Actor->PostEditProperty(Prop.Name.c_str());
-	}
-}
 
 void FSceneSaveManager::DeserializeProperties(UActorComponent* Comp, json::JSON& PropsJSON)
 {

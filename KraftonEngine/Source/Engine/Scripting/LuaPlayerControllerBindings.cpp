@@ -4,18 +4,18 @@
 #include "LuaBindingHelper.h"
 #include "LuaWorldLibrary.h"
 
-#include "GameFramework/PlayerController.h"
+#include "Component/ControllerInputComponent.h"
 #include "GameFramework/Pawn.h"
-#include "Component/CameraComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "Math/Rotator.h"
 
 void RegisterPlayerControllerBinding(sol::state& Lua)
 {
 	Lua.new_usertype<FLuaPlayerControllerHandle>(
 		"PlayerController",
-
+		
 		sol::no_constructor,
-
+		
 		LUA_HANDLE_COMMON(FLuaPlayerControllerHandle),
 
 		"Possess",
@@ -27,8 +27,7 @@ void RegisterPlayerControllerBinding(sol::state& Lua)
 				UE_LOG("[Lua] Invalid PlayerController.Possess Call.");
 				return;
 			}
-			APawn* Pawn = PawnHandle.Resolve();
-			Controller->Possess(Pawn);
+			Controller->Possess(PawnHandle.Resolve());
 		},
 
 		"UnPossess",
@@ -48,8 +47,7 @@ void RegisterPlayerControllerBinding(sol::state& Lua)
 		{
 			FLuaPawnHandle Handle;
 			APlayerController* Controller = Self.Resolve();
-			if (!Controller) return Handle;
-			APawn* Pawn = Controller->GetPawn();
+			APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
 			if (Pawn)
 			{
 				Handle.UUID = Pawn->GetUUID();
@@ -57,7 +55,21 @@ void RegisterPlayerControllerBinding(sol::state& Lua)
 			return Handle;
 		},
 
-		// SetViewTarget은 Pawn 핸들과 GameObject 핸들 모두 수용
+		"GetControllerInput",
+		[](const FLuaPlayerControllerHandle& Self) -> FLuaActorComponentHandle
+		{
+			FLuaActorComponentHandle Handle;
+			APlayerController* Controller = Self.Resolve();
+			if (Controller)
+			{
+				if (UControllerInputComponent* Input = Controller->FindControllerInputComponent())
+				{
+					Handle.UUID = Input->GetUUID();
+				}
+			}
+			return Handle;
+		},
+
 		"SetViewTarget",
 		sol::overload(
 			[](const FLuaPlayerControllerHandle& Self, const FLuaPawnHandle& PawnHandle)
@@ -68,8 +80,7 @@ void RegisterPlayerControllerBinding(sol::state& Lua)
 					UE_LOG("[Lua] Invalid PlayerController.SetViewTarget(Pawn) Call.");
 					return;
 				}
-				APawn* Pawn = PawnHandle.Resolve();
-				Controller->SetViewTarget(Pawn);
+				Controller->SetViewTarget(PawnHandle.Resolve());
 			},
 			[](const FLuaPlayerControllerHandle& Self, const FLuaGameObjectHandle& ActorHandle)
 			{
@@ -79,8 +90,7 @@ void RegisterPlayerControllerBinding(sol::state& Lua)
 					UE_LOG("[Lua] Invalid PlayerController.SetViewTarget(Actor) Call.");
 					return;
 				}
-				AActor* Target = ActorHandle.Resolve();
-				Controller->SetViewTarget(Target);
+				Controller->SetViewTarget(ActorHandle.Resolve());
 			}
 		),
 
@@ -101,55 +111,6 @@ void RegisterPlayerControllerBinding(sol::state& Lua)
 				return;
 			}
 			Controller->SetControlRotation(Rotation);
-		},
-
-		"MovementFrame",
-		sol::property(
-			[](const FLuaPlayerControllerHandle& Self) -> int
-			{
-				APlayerController* Controller = Self.Resolve();
-				return Controller ? static_cast<int>(Controller->GetMovementFrame()) : 0;
-			},
-			[](const FLuaPlayerControllerHandle& Self, int Frame)
-			{
-				APlayerController* Controller = Self.Resolve();
-				if (!Controller)
-				{
-					UE_LOG("[Lua] Invalid PlayerController.MovementFrame Access.");
-					return;
-				}
-				Controller->SetMovementFrame(Frame == 0 ? EControllerMovementFrame::World : EControllerMovementFrame::Camera);
-			}
-		),
-
-		"LookMode",
-		sol::property(
-			[](const FLuaPlayerControllerHandle& Self) -> int
-			{
-				APlayerController* Controller = Self.Resolve();
-				return Controller ? static_cast<int>(Controller->GetLookMode()) : 0;
-			},
-			[](const FLuaPlayerControllerHandle& Self, int Mode)
-			{
-				APlayerController* Controller = Self.Resolve();
-				if (!Controller)
-				{
-					UE_LOG("[Lua] Invalid PlayerController.LookMode Access.");
-					return;
-				}
-				if (Mode <= 0)
-				{
-					Controller->SetLookMode(EControllerLookMode::Auto);
-				}
-				else if (Mode == 1)
-				{
-					Controller->SetLookMode(EControllerLookMode::CameraOnly);
-				}
-				else
-				{
-					Controller->SetLookMode(EControllerLookMode::PawnYawPawnPitch);
-				}
-			}
-		)
+		}
 	);
 }

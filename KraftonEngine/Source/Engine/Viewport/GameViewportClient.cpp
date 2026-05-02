@@ -1,11 +1,9 @@
 #include "Viewport/GameViewportClient.h"
 
 #include "Component/CameraComponent.h"
+#include "Component/ControllerInputComponent.h"
 #include "GameFramework/PlayerController.h"
-#include "GameFramework/Pawn.h"
-#include "GameFramework/World.h"
 #include "Engine/Input/InputSystem.h"
-#include "Math/MathUtils.h"
 #include "Object/Object.h"
 
 #include <windows.h>
@@ -23,7 +21,6 @@ namespace
 		{
 			return;
 		}
-
 		FRotator Rotation = GetCameraWorldRotation(Camera);
 		Rotation.Roll = 0.0f;
 		Controller->SetControlRotation(Rotation);
@@ -90,7 +87,6 @@ void UGameViewportClient::SetPossessed(bool bPossessed)
 	{
 		return;
 	}
-
 	bPIEPossessedInputEnabled = bPossessed;
 	SetCursorCaptured(bPossessed);
 	ResetInputState();
@@ -113,7 +109,6 @@ void UGameViewportClient::Possess(UCameraComponent* TargetCamera)
 	{
 		return;
 	}
-
 	PossessedCamera = TargetCamera;
 	SyncControllerRotationFromCamera(PlayerController, GetPossessedTarget());
 	ResetInputState();
@@ -151,7 +146,6 @@ bool UGameViewportClient::Tick(float DeltaTime, const FInputSystemSnapshot& Snap
 	{
 		return false;
 	}
-
 	if (!Snapshot.bWindowFocused)
 	{
 		InputSystem::Get().SetUseRawMouse(false);
@@ -159,7 +153,6 @@ bool UGameViewportClient::Tick(float DeltaTime, const FInputSystemSnapshot& Snap
 		ResetInputState();
 		return false;
 	}
-
 	InputSystem::Get().SetUseRawMouse(true);
 	SetCursorCaptured(true);
 	return ApplyInputToCameraOrActor(DeltaTime, Snapshot);
@@ -171,147 +164,14 @@ bool UGameViewportClient::ApplyInputToCameraOrActor(float DeltaTime, const FInpu
 	{
 		return false;
 	}
-
-	const bool bMoved = ApplyMovementInput(DeltaTime, Snapshot);
-	const bool bLooked = ApplyLookInput(Snapshot);
-	return bMoved || bLooked;
-}
-
-bool UGameViewportClient::ApplyMovementInput(float DeltaTime, const FInputSystemSnapshot& Snapshot)
-{
-	if (!HasPossessedTarget())
+	APlayerController* SafeController = IsAliveObject(PlayerController) ? PlayerController : nullptr;
+	if (SafeController)
 	{
-		return false;
-	}
-
-	if (!Snapshot.bGuiUsingKeyboard && !Snapshot.bGuiUsingTextInput)
-	{
-		FVector MoveInput(0.0f, 0.0f, 0.0f);
-		if (Snapshot.IsDown('W')) MoveInput.X += 1.0f;
-		if (Snapshot.IsDown('S')) MoveInput.X -= 1.0f;
-		if (Snapshot.IsDown('A')) MoveInput.Y -= 1.0f;
-		if (Snapshot.IsDown('D')) MoveInput.Y += 1.0f;
-		if (Snapshot.IsDown('E') || Snapshot.IsDown(VK_SPACE)) MoveInput.Z += 1.0f;
-		if (Snapshot.IsDown('Q') || Snapshot.IsDown(VK_CONTROL)) MoveInput.Z -= 1.0f;
-
-		if (!MoveInput.IsNearlyZero())
+		if (UControllerInputComponent* InputComponent = SafeController->FindControllerInputComponent())
 		{
-			MoveInput = MoveInput.Normalized();
-
-			UCameraComponent* TargetCamera = GetPossessedTarget();
-			APlayerController* SafeController = IsAliveObject(PlayerController) ? PlayerController : nullptr;
-
-			FVector MoveForward = FVector::ForwardVector;
-			FVector MoveRight = FVector::RightVector;
-			const bool bUseCameraFrame = !SafeController
-				|| SafeController->GetMovementFrame() == EControllerMovementFrame::Camera;
-
-			if (bUseCameraFrame && TargetCamera)
-			{
-				// Camera-relative movement uses the camera yaw plane. Vertical movement remains E/Q or Space/Ctrl.
-				MoveForward = TargetCamera->GetForwardVector();
-				MoveRight = TargetCamera->GetRightVector();
-				MoveForward.Z = 0.0f;
-				MoveRight.Z = 0.0f;
-			}
-
-			if (!MoveForward.IsNearlyZero())
-			{
-				MoveForward = MoveForward.Normalized();
-			}
-			else
-			{
-				MoveForward = FVector::ForwardVector;
-			}
-
-			if (!MoveRight.IsNearlyZero())
-			{
-				MoveRight = MoveRight.Normalized();
-			}
-			else
-			{
-				MoveRight = FVector::RightVector;
-			}
-
-			const float SafeDeltaTime = (DeltaTime > 0.0f) ? DeltaTime : (1.0f / 60.0f);
-			const float SpeedBoost = Snapshot.IsDown(VK_SHIFT) ? InputSettings.SprintMultiplier : 1.0f;
-			const FVector WorldDelta = (MoveForward * MoveInput.X + MoveRight * MoveInput.Y + FVector::UpVector * MoveInput.Z)
-				* (InputSettings.MoveSpeed * SpeedBoost * SafeDeltaTime);
-
-			if (SafeController)
-			{
-				if (APawn* Pawn = SafeController->GetPawn())
-				{
-					Pawn->AddMovementInput(WorldDelta, WorldDelta.Length());
-					Pawn->AddActorWorldOffset(Pawn->ConsumeMovementInputVector());
-					return true;
-				}
-			}
-
-			if (TargetCamera)
-			{
-				TargetCamera->SetWorldLocation(TargetCamera->GetWorldLocation() + WorldDelta);
-				return true;
-			}
+			return InputComponent->ApplyInput(SafeController, PossessedCamera, DeltaTime, Snapshot);
 		}
 	}
-
-	return false;
-}
-
-bool UGameViewportClient::ApplyLookInput(const FInputSystemSnapshot& Snapshot)
-{
-	if (!HasPossessedTarget())
-	{
-		return false;
-	}
-
-	// PIE possessed mode owns mouse look. If ImGui explicitly captures mouse, skip look
-	// so UI interactions do not leak into the controller.
-	if (!Snapshot.bGuiUsingMouse && (Snapshot.MouseDeltaX != 0 || Snapshot.MouseDeltaY != 0))
-	{
-		UCameraComponent* TargetCamera = GetPossessedTarget();
-		if (!TargetCamera)
-		{
-			return false;
-		}
-
-		APlayerController* SafeController = IsAliveObject(PlayerController) ? PlayerController : nullptr;
-		FRotator Rotation = SafeController ? SafeController->GetControlRotation() : TargetCamera->GetRelativeRotation();
-		Rotation.Yaw += static_cast<float>(Snapshot.MouseDeltaX) * InputSettings.LookSensitivity;
-		Rotation.Pitch = Clamp(
-			Rotation.Pitch + static_cast<float>(Snapshot.MouseDeltaY) * InputSettings.LookSensitivity,
-			InputSettings.MinPitch,
-			InputSettings.MaxPitch);
-		Rotation.Roll = 0.0f;
-
-		if (SafeController)
-		{
-			SafeController->SetControlRotation(Rotation);
-
-			APawn* Pawn = SafeController->GetPawn();
-			UCameraComponent* PawnCamera = Pawn ? Pawn->FindPawnCamera() : nullptr;
-			const EControllerLookMode LookMode = SafeController->GetLookMode();
-			const bool bUsePawnYawPawnPitch = Pawn != nullptr
-				&& (LookMode == EControllerLookMode::PawnYawPawnPitch
-					|| (LookMode == EControllerLookMode::Auto && PawnCamera == TargetCamera));
-
-			if (bUsePawnYawPawnPitch)
-			{
-				// Pawn-owned camera mode rotates the Pawn itself on both yaw and pitch.
-				// A child camera inherits that rotation; separated view cameras still use
-				// the CameraOnly path below.
-				Pawn->SetActorRotation(FRotator(Rotation.Pitch, Rotation.Yaw, 0.0f));
-				return true;
-			}
-		}
-
-		// CameraOnly and Auto-with-separated-camera both rotate only the view camera.
-		// This prevents a possessed Pawn/object from turning when the ViewTarget camera is separate.
-		TargetCamera->SetRelativeRotation(Rotation);
-		return true;
-	}
-
 	return false;
 }
 
@@ -325,7 +185,6 @@ void UGameViewportClient::SetCursorCaptured(bool bCaptured)
 		}
 		return;
 	}
-
 	bCursorCaptured = bCaptured;
 	if (bCursorCaptured)
 	{
@@ -333,7 +192,6 @@ void UGameViewportClient::SetCursorCaptured(bool bCaptured)
 		ApplyCursorClip();
 		return;
 	}
-
 	while (::ShowCursor(TRUE) < 0) {}
 	::ClipCursor(nullptr);
 }
@@ -344,7 +202,6 @@ void UGameViewportClient::ApplyCursorClip()
 	{
 		return;
 	}
-
 	RECT ClientRect = {};
 	if (bHasCursorClipRect)
 	{
@@ -354,14 +211,12 @@ void UGameViewportClient::ApplyCursorClip()
 	{
 		return;
 	}
-
 	POINT TopLeft = { ClientRect.left, ClientRect.top };
 	POINT BottomRight = { ClientRect.right, ClientRect.bottom };
 	if (!::ClientToScreen(OwnerHWnd, &TopLeft) || !::ClientToScreen(OwnerHWnd, &BottomRight))
 	{
 		return;
 	}
-
 	RECT ScreenRect = { TopLeft.x, TopLeft.y, BottomRight.x, BottomRight.y };
 	if (ScreenRect.right > ScreenRect.left && ScreenRect.bottom > ScreenRect.top)
 	{

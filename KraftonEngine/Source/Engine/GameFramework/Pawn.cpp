@@ -1,23 +1,26 @@
 #include "GameFramework/Pawn.h"
-#include "Component/CameraComponent.h"
-#include "Component/StaticMeshComponent.h"
+
 #include "Component/ActorComponent.h"
+#include "Component/CameraComponent.h"
+#include "Component/Movement/PawnMovementComponent.h"
+#include "Component/StaticMeshComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/World.h"
-#include <cmath>
 
 IMPLEMENT_CLASS(APawn, AActor)
 
 void APawn::InitDefaultComponents()
 {
-	if (GetRootComponent())
+	if (!GetRootComponent())
 	{
-		return;
+		if (UStaticMeshComponent* Root = AddComponent<UStaticMeshComponent>())
+		{
+			SetRootComponent(Root);
+		}
 	}
-
-	if (UStaticMeshComponent* Root = AddComponent<UStaticMeshComponent>())
+	if (!FindPawnMovementComponent())
 	{
-		SetRootComponent(Root);
+		AddComponent<UPawnMovementComponent>();
 	}
 }
 
@@ -34,7 +37,6 @@ void APawn::EndPlay()
 	AActor::EndPlay();
 }
 
-
 APlayerController* APawn::GetController() const
 {
 	if (!Controller || !IsAliveObject(Controller))
@@ -50,28 +52,28 @@ APlayerController* APawn::GetController() const
 
 void APawn::AddMovementInput(const FVector& Direction, float Scale)
 {
-	if (Scale == 0.0f)
+	if (UPawnMovementComponent* Movement = FindPawnMovementComponent())
 	{
-		return;
+		Movement->AddMovementInput(Direction, Scale);
 	}
-
-	const float LenSq = Direction.X * Direction.X + Direction.Y * Direction.Y + Direction.Z * Direction.Z;
-	if (LenSq < 1e-8f)
-	{
-		return;
-	}
-
-	const float InvLen = 1.0f / sqrtf(LenSq);
-	PendingMovementInput.X += Direction.X * InvLen * Scale;
-	PendingMovementInput.Y += Direction.Y * InvLen * Scale;
-	PendingMovementInput.Z += Direction.Z * InvLen * Scale;
 }
 
 FVector APawn::ConsumeMovementInputVector()
 {
-	FVector Result = PendingMovementInput;
-	PendingMovementInput = FVector::ZeroVector;
-	return Result;
+	if (UPawnMovementComponent* Movement = FindPawnMovementComponent())
+	{
+		return Movement->ConsumeMovementInputVector();
+	}
+	return FVector::ZeroVector;
+}
+
+FVector APawn::GetPendingMovementInputVector() const
+{
+	if (UPawnMovementComponent* Movement = FindPawnMovementComponent())
+	{
+		return Movement->GetPendingMovementInputVector();
+	}
+	return FVector::ZeroVector;
 }
 
 UCameraComponent* APawn::FindPawnCamera() const
@@ -81,6 +83,18 @@ UCameraComponent* APawn::FindPawnCamera() const
 		if (UCameraComponent* Camera = Cast<UCameraComponent>(Component))
 		{
 			return Camera;
+		}
+	}
+	return nullptr;
+}
+
+UPawnMovementComponent* APawn::FindPawnMovementComponent() const
+{
+	for (UActorComponent* Component : GetComponents())
+	{
+		if (UPawnMovementComponent* Movement = Cast<UPawnMovementComponent>(Component))
+		{
+			return Movement;
 		}
 	}
 	return nullptr;

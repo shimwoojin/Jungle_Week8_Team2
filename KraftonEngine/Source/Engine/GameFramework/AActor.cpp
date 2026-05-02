@@ -343,15 +343,6 @@ void AActor::Serialize(FArchive& Ar)
 	Ar << bNeedsTick;
 }
 
-void AActor::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)
-{
-	(void)OutProps;
-}
-
-void AActor::PostEditProperty(const char* PropertyName)
-{
-	(void)PropertyName;
-}
 
 // SceneComponent 서브트리를 재귀 복제. 부모 → 자식 순으로 만들되,
 // RegisterComponent(=CreateRenderState/Proxy) 호출 전에 부모에 Attach 해서

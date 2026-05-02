@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Object/Object.h"
 #include "UI/SWindow.h"
@@ -13,15 +13,6 @@ class FViewport;
 class UCameraComponent;
 class APlayerController;
 struct FInputSystemSnapshot;
-
-struct FGameInputSettings
-{
-	float MoveSpeed = 10.0f;
-	float SprintMultiplier = 2.5f;
-	float LookSensitivity = 0.08f;
-	float MinPitch = -89.0f;
-	float MaxPitch = 89.0f;
-};
 
 // UE의 UGameViewportClient 대응 — UObject + FViewportClient 다중상속
 // 게임 런타임 뷰포트를 담당 (PIE / Standalone)
@@ -63,8 +54,6 @@ public:
 
 private:
 	bool ApplyInputToCameraOrActor(float DeltaTime, const FInputSystemSnapshot& Snapshot);
-	bool ApplyMovementInput(float DeltaTime, const FInputSystemSnapshot& Snapshot);
-	bool ApplyLookInput(const FInputSystemSnapshot& Snapshot);
 	void SetCursorCaptured(bool bCaptured);
 	void ApplyCursorClip();
 
@@ -72,7 +61,6 @@ private:
 	HWND OwnerHWnd = nullptr;
 	UCameraComponent* PossessedCamera = nullptr;
 	APlayerController* PlayerController = nullptr;
-	FGameInputSettings InputSettings{};
 	RECT CursorClipClientRect = {};
 	bool bHasCursorClipRect = false;
 	bool bPIEPossessedInputEnabled = false;

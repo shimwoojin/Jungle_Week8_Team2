@@ -10,6 +10,7 @@
 #include "GameFramework/AActor.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/CameraActor.h"
 #include "Component/SceneComponent.h"
 #include "GameFramework/DecalActor.h"
 #include "GameFramework/HeightFogActor.h"
@@ -2044,13 +2045,12 @@ AActor* FLevelViewportLayout::SpawnActorFromViewportMenu(EViewportPlaceActorType
 
 	case EViewportPlaceActorType::Camera:
 	{
-		AActor* Actor = World->SpawnActor<AActor>();
+		ACameraActor* Actor = World->SpawnActor<ACameraActor>();
 		if (Actor)
 		{
-			UCameraComponent* Camera = Actor->AddComponent<UCameraComponent>();
-			if (Camera)
+			Actor->InitDefaultComponents();
+			if (UCameraComponent* Camera = Actor->GetCameraComponent())
 			{
-				Actor->SetRootComponent(Camera);
 				Camera->SetWorldLocation(SpawnLocation);
 				Camera->LookAt(SpawnLocation + FVector(1.0f, 0.0f, 0.0f));
 				World->SetActiveCamera(Camera);

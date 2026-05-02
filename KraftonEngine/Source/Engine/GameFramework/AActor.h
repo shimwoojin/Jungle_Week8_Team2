@@ -4,7 +4,6 @@
 #include "Component/SceneComponent.h"
 #include "Core/TickFunction.h"
 #include "Runtime/Delegate.h"
-#include "Core/PropertyTypes.h"
 
 class FArchive;
 
@@ -33,8 +32,6 @@ public:
 
 	void Serialize(FArchive& Ar) override;
 	UObject* Duplicate(UObject* NewOuter = nullptr) const override;
-	virtual void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps);
-	virtual void PostEditProperty(const char* PropertyName);
 
 	// 컴포넌트 생성 + Owner 설정 + 등록 + 렌더 상태 생성
 	template<typename T>

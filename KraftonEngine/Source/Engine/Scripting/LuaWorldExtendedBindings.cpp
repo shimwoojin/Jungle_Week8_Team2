@@ -1,4 +1,4 @@
-#include "LuaBindings.h"
+﻿#include "LuaBindings.h"
 #include "SolInclude.h"
 #include "LuaHandles.h"
 #include "LuaWorldLibrary.h"
@@ -7,9 +7,8 @@
 #include "GameFramework/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/CameraActor.h"
 #include "Component/CameraComponent.h"
-#include "Component/SceneComponent.h"
-#include "Object/ObjectFactory.h"
 #include "Runtime/Engine.h"
 
 void RegisterWorldExtendedBinding(sol::state& Lua)
@@ -71,6 +70,57 @@ void RegisterWorldExtendedBinding(sol::state& Lua)
 
 			FLuaPawnHandle Handle;
 			Handle.UUID = Pawn->GetUUID();
+			return sol::make_object(LuaView, Handle);
+		});
+
+	World.set_function("SpawnCamera",
+		[](sol::optional<FVector> MaybeLocation, sol::this_state TS) -> sol::object
+		{
+			sol::state_view LuaView(TS);
+			UWorld* W = FLuaWorldLibrary::GetActiveWorld();
+			if (!W)
+			{
+				UE_LOG("[Lua] World.SpawnCamera: No active world.");
+				return sol::nil;
+			}
+			ACameraActor* CameraActor = W->SpawnActor<ACameraActor>();
+			if (!CameraActor)
+			{
+				UE_LOG("[Lua] World.SpawnCamera: SpawnActor failed.");
+				return sol::nil;
+			}
+			CameraActor->InitDefaultComponents();
+			if (MaybeLocation.has_value())
+			{
+				CameraActor->SetActorLocation(MaybeLocation.value());
+			}
+			FLuaGameObjectHandle Handle;
+			Handle.UUID = CameraActor->GetUUID();
+			return sol::make_object(LuaView, Handle);
+		});
+
+	World.set_function("SpawnPlayerController",
+		[](sol::optional<FVector> MaybeLocation, sol::this_state TS) -> sol::object
+		{
+			sol::state_view LuaView(TS);
+			UWorld* W = FLuaWorldLibrary::GetActiveWorld();
+			if (!W)
+			{
+				UE_LOG("[Lua] World.SpawnPlayerController: No active world.");
+				return sol::nil;
+			}
+			APlayerController* Controller = W->CreatePlayerController();
+			if (!Controller)
+			{
+				UE_LOG("[Lua] World.SpawnPlayerController: SpawnActor failed.");
+				return sol::nil;
+			}
+			if (MaybeLocation.has_value())
+			{
+				Controller->SetActorLocation(MaybeLocation.value());
+			}
+			FLuaPlayerControllerHandle Handle;
+			Handle.UUID = Controller->GetUUID();
 			return sol::make_object(LuaView, Handle);
 		});
 
