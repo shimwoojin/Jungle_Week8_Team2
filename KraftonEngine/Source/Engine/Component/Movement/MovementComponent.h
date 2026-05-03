@@ -4,6 +4,7 @@
 #include "Math/Vector.h"
 
 class USceneComponent;
+struct FHitResult;
 
 struct FControllerMovementInput
 {
@@ -59,6 +60,7 @@ public:
 	int32 GetControllerInputPriority() const { return ControllerInputPriority; }
 
 protected:
+	bool SafeMoveUpdatedComponent(const FVector& Delta, FHitResult* OutHit = nullptr);
 	void TryAutoRegisterUpdatedComponent();
 	USceneComponent* FindUpdatedComponentByPath(const FString& InPath) const;
 

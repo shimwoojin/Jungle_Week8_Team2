@@ -68,6 +68,26 @@ void RegisterGameObjectBinding(sol::state& Lua)
 
 		LUA_HANDLE_COMMON(FLuaGameObjectHandle),
 
+		"Name",
+		sol::property(
+			[](const FLuaGameObjectHandle& Self)
+			{
+				AActor* Actor = Self.Resolve();
+				return Actor ? Actor->GetFName().ToString() : FString();
+			},
+			[](const FLuaGameObjectHandle& Self, const FString& Name)
+			{
+				AActor* Actor = Self.Resolve();
+				if (!Actor)
+				{
+					UE_LOG("[Lua] Invalid GameObject.Name Access.");
+					return;
+				}
+
+				Actor->SetFName(FName(Name));
+			}
+		),
+
 		"Location",
 		sol::property(
 			[](const FLuaGameObjectHandle& Self)

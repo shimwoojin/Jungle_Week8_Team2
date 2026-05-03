@@ -1,0 +1,74 @@
+{
+  "Name" : "CarA",
+  "RootActor" : {
+    "ActorUUID" : 182,
+    "ClassName" : "AActor",
+    "NonSceneComponents" : [],
+    "RootComponent" : {
+      "Children" : [{
+          "Children" : [],
+          "ClassName" : "UBoxComponent",
+          "Properties" : {
+            "Blocks Movement" : true,
+            "Box Extent" : [1.000000, 1.000000, 1.000000],
+            "Cast Shadow" : true,
+            "Generate Overlap Events" : true,
+            "Location" : [0.000000, 0.000000, 0.000000],
+            "Rotation" : [-0.000000, 0.000000, 0.000000],
+            "Scale" : [0.230000, 0.130000, 0.110000],
+            "Two Sided Shadow" : false,
+            "Visible" : true,
+            "bEditorOnly" : false,
+            "bTickEnable" : true
+          }
+        }],
+      "ClassName" : "UStaticMeshComponent",
+      "Properties" : {
+        "Blocks Movement" : true,
+        "Cast Shadow" : true,
+        "Element 0" : {
+          "Path" : "Asset/Materials/Auto/mat1.005.mat"
+        },
+        "Element 1" : {
+          "Path" : "Asset/Materials/Auto/mat3.004.mat"
+        },
+        "Element 2" : {
+          "Path" : "Asset/Materials/Auto/mat4.004.mat"
+        },
+        "Element 3" : {
+          "Path" : "Asset/Materials/Auto/mat5.004.mat"
+        },
+        "Element 4" : {
+          "Path" : "Asset/Materials/Auto/mat7.004.mat"
+        },
+        "Element 5" : {
+          "Path" : "Asset/Materials/Auto/mat8.002.mat"
+        },
+        "Element 6" : {
+          "Path" : "Asset/Materials/Auto/mat11.001.mat"
+        },
+        "Element 7" : {
+          "Path" : "Asset/Materials/Auto/mat12.001.mat"
+        },
+        "Element 8" : {
+          "Path" : "Asset/Materials/Auto/mat13.001.mat"
+        },
+        "Element 9" : {
+          "Path" : "Asset/Materials/Auto/mat14.001.mat"
+        },
+        "Generate Overlap Events" : true,
+        "Location" : [10.000000, 10.000000, 10.000000],
+        "Rotation" : [-0.000000, 0.000000, 0.000000],
+        "Scale" : [5.000000, 5.000000, 5.000000],
+        "Static Mesh" : "Data/VoxelCars/VoxelCarA.obj",
+        "Two Sided Shadow" : false,
+        "Visible" : true,
+        "bEditorOnly" : false,
+        "bTickEnable" : true
+      }
+    },
+    "bVisible" : true
+  },
+  "Type" : "ActorPrefab",
+  "Version" : 1
+}

@@ -38,8 +38,8 @@ public:
 	bool IsPauseMenuOpen() const { return bPauseMenuOpen; }
 	void SetPauseMenuOpen(bool bOpen);
 	void TogglePauseMenu();
-	void RequestRestart();
-	void RequestExit();
+	void RequestRestart() override;
+	void RequestExit() override;
 
 private:
 	void TickAlways(float DeltaTime);

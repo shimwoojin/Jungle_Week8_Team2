@@ -1,0 +1,71 @@
+{
+  "Name" : "CarB",
+  "RootActor" : {
+    "ActorUUID" : 197,
+    "ClassName" : "AActor",
+    "NonSceneComponents" : [],
+    "RootComponent" : {
+      "Children" : [{
+          "Children" : [],
+          "ClassName" : "UBoxComponent",
+          "Properties" : {
+            "Blocks Movement" : true,
+            "Box Extent" : [1.000000, 1.000000, 1.000000],
+            "Cast Shadow" : true,
+            "Generate Overlap Events" : true,
+            "Location" : [0.000000, 0.000000, 0.000000],
+            "Rotation" : [-0.000000, 0.000000, 0.000000],
+            "Scale" : [0.105000, 0.065000, 0.070000],
+            "Two Sided Shadow" : false,
+            "Visible" : true,
+            "bEditorOnly" : false,
+            "bTickEnable" : true
+          }
+        }],
+      "ClassName" : "UStaticMeshComponent",
+      "Properties" : {
+        "Blocks Movement" : true,
+        "Cast Shadow" : true,
+        "Element 0" : {
+          "Path" : "Asset/Materials/Auto/mat1.005.mat"
+        },
+        "Element 1" : {
+          "Path" : "Asset/Materials/Auto/mat2.005.mat"
+        },
+        "Element 2" : {
+          "Path" : "Asset/Materials/Auto/mat3.004.mat"
+        },
+        "Element 3" : {
+          "Path" : "Asset/Materials/Auto/mat4.004.mat"
+        },
+        "Element 4" : {
+          "Path" : "Asset/Materials/Auto/mat5.004.mat"
+        },
+        "Element 5" : {
+          "Path" : "Asset/Materials/Auto/mat6.004.mat"
+        },
+        "Element 6" : {
+          "Path" : "Asset/Materials/Auto/mat9.002.mat"
+        },
+        "Element 7" : {
+          "Path" : "Asset/Materials/Auto/mat10.001.mat"
+        },
+        "Element 8" : {
+          "Path" : "Asset/Materials/Auto/mat15.001.mat"
+        },
+        "Generate Overlap Events" : true,
+        "Location" : [13.059600, 10.100000, 10.100000],
+        "Rotation" : [-0.000000, 0.000000, 0.000000],
+        "Scale" : [10.000000, 10.000000, 10.000000],
+        "Static Mesh" : "Data/VoxelCars/VoxelCarB.obj",
+        "Two Sided Shadow" : false,
+        "Visible" : true,
+        "bEditorOnly" : false,
+        "bTickEnable" : true
+      }
+    },
+    "bVisible" : true
+  },
+  "Type" : "ActorPrefab",
+  "Version" : 1
+}
