@@ -793,8 +793,12 @@ bool FSceneSaveManager::ApplyPrefabDataToActor(AActor* Actor, json::JSON& ActorJ
 	{
 		Actor->InitDefaultComponents();
 	}
-			//World->RemoveActorToOctree(Actor);
-			//World->InsertActorToOctree(Actor);
+
+	if (UWorld* World = Actor->GetWorld())
+	{
+		World->RemoveActorToOctree(Actor);
+		World->InsertActorToOctree(Actor);
+	}
 
 	return true;
 }
