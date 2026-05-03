@@ -4,8 +4,53 @@
 #include "Platform/Paths.h"
 #include "GameFramework/AActor.h"
 #include "GameFramework/World.h"
-#include <iostream>
+
+#include <algorithm>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
+
+namespace
+{
+	std::filesystem::path ResolvePrefabFilePath(const FString& PrefabNameOrPath)
+	{
+		std::wstring WideInput = FPaths::ToWide(PrefabNameOrPath);
+		std::replace(WideInput.begin(), WideInput.end(), L'\\', L'/');
+
+		std::filesystem::path InputPath(WideInput);
+		if (InputPath.has_parent_path())
+		{
+			if (!InputPath.has_extension())
+			{
+				InputPath += FPrefabSaveManager::PrefabExtension;
+			}
+			return InputPath;
+		}
+
+		std::wstring FileName = WideInput;
+		std::filesystem::path FilePath(FileName);
+		if (!FilePath.has_extension())
+		{
+			FileName += FPrefabSaveManager::PrefabExtension;
+		}
+
+		return std::filesystem::path(FPaths::PrefabDir()) / FileName;
+	}
+
+	bool ReadTextFile(const std::filesystem::path& FilePath, std::string& OutContent)
+	{
+		std::ifstream File(FilePath);
+		if (!File.is_open())
+		{
+			return false;
+		}
+
+		OutContent.assign(
+			std::istreambuf_iterator<char>(File),
+			std::istreambuf_iterator<char>());
+		return true;
+	}
+}
 
 bool FPrefabSaveManager::SaveActorAsPrefab(AActor* Actor, const FString& PrefabName)
 {
@@ -20,13 +65,15 @@ bool FPrefabSaveManager::SaveActorAsPrefab(AActor* Actor, const FString& PrefabN
 	Root["Version"] = 1;
 	Root["Type"] = "ActorPrefab";
 	Root["Name"] = PrefabName.c_str();
-
-	JSON RootActor = FSceneSaveManager::SerializeActor(Actor);
-	Root["RootActor"] = RootActor;
+	Root["RootActor"] = FSceneSaveManager::SerializeActor(Actor);
 
 	std::wstring PrefabDir = FPaths::PrefabDir();
 	FPaths::CreateDir(PrefabDir);
-	std::filesystem::path FileDestination = std::filesystem::path(PrefabDir) / (FPaths::ToWide(PrefabName) + PrefabExtension);
+	std::filesystem::path FileDestination = ResolvePrefabFilePath(PrefabName);
+	if (FileDestination.has_parent_path())
+	{
+		std::filesystem::create_directories(FileDestination.parent_path());
+	}
 
 	std::ofstream File(FileDestination);
 	if (File.is_open())
@@ -42,68 +89,115 @@ bool FPrefabSaveManager::SaveActorAsPrefab(AActor* Actor, const FString& PrefabN
 	return false;
 }
 
-AActor* FPrefabSaveManager::LoadPrefabActor(UWorld* World, const FString& PrefabName)
+bool FPrefabSaveManager::LoadPrefabRootActorJson(const FString& PrefabNameOrPath, json::JSON& OutRootActorJson)
 {
-	if (!World || PrefabName.empty()) return nullptr;
+	if (PrefabNameOrPath.empty())
+	{
+		std::cerr << "[Prefab] Load failed: PrefabName is empty\n";
+		return false;
+	}
 
-	std::wstring PrefabDir = FPaths::PrefabDir();
-	std::filesystem::path FileDestination = std::filesystem::path(PrefabDir) / (FPaths::ToWide(PrefabName) + PrefabExtension);
-
+	std::filesystem::path FileDestination = ResolvePrefabFilePath(PrefabNameOrPath);
 	if (!std::filesystem::exists(FileDestination))
 	{
 		std::cerr << "[Prefab] Load failed: file not found - " << FPaths::ToUtf8(FileDestination.wstring()) << "\n";
-		return nullptr;
+		return false;
 	}
 
-	std::ifstream File(FileDestination);
-	if (!File.is_open()) return nullptr;
-
-	std::string FileContent((std::istreambuf_iterator<char>(File)), std::istreambuf_iterator<char>());
-	json::JSON root = json::JSON::Load(FileContent);
-
-	if (!root.hasKey("Type") || root["Type"].ToString() != "ActorPrefab")
+	std::string FileContent;
+	if (!ReadTextFile(FileDestination, FileContent))
 	{
-		std::cerr << "[Prefab] Load failed: Invalid prefab type\n";
-		return nullptr;
+		std::cerr << "[Prefab] Load failed: Could not open file - " << FPaths::ToUtf8(FileDestination.wstring()) << "\n";
+		return false;
 	}
 
-	if (!root.hasKey("RootActor"))
+	json::JSON Root = json::JSON::Load(FileContent);
+	if (Root.hasKey("RootActor"))
 	{
-		std::cerr << "[Prefab] Load failed: Missing RootActor\n";
-		return nullptr;
+		OutRootActorJson = Root["RootActor"];
+		return true;
 	}
 
-	json::JSON& RootActorJson = root["RootActor"];
-	AActor* Actor = FSceneSaveManager::DeserializeActor(World, RootActorJson);
-	
-	return Actor;
+	// Compatibility path for raw actor JSON prefabs made by the other branch.
+	if (Root.hasKey("ClassName"))
+	{
+		OutRootActorJson = Root;
+		return true;
+	}
+
+	std::cerr << "[Prefab] Load failed: Missing RootActor/ClassName - " << FPaths::ToUtf8(FileDestination.wstring()) << "\n";
+	return false;
 }
 
-AActor* FPrefabSaveManager::SpawnPrefab(UWorld* World, const FString& PrefabName, const FVector& SpawnLocation)
+AActor* FPrefabSaveManager::LoadPrefabActor(UWorld* World, const FString& PrefabNameOrPath)
 {
-	AActor* Actor = LoadPrefabActor(World, PrefabName);
-	if (!Actor) return nullptr;
+	if (!World || PrefabNameOrPath.empty())
+	{
+		return nullptr;
+	}
 
+	json::JSON RootActorJson;
+	if (!LoadPrefabRootActorJson(PrefabNameOrPath, RootActorJson))
+	{
+		return nullptr;
+	}
+
+	FActorDeserializeOptions Options;
+	Options.bAddToWorld = false;
+	Options.bInitDefaultComponentsIfMissing = false;
+
+	return FSceneSaveManager::DeserializeActor(World, RootActorJson, nullptr, Options);
+}
+
+bool FPrefabSaveManager::ApplyPrefabToActor(AActor* Actor, const FString& PrefabNameOrPath)
+{
+	if (!Actor || PrefabNameOrPath.empty())
+	{
+		return false;
+	}
+
+	json::JSON RootActorJson;
+	if (!LoadPrefabRootActorJson(PrefabNameOrPath, RootActorJson))
+	{
+		return false;
+	}
+
+	return FSceneSaveManager::ApplyPrefabDataToActor(Actor, RootActorJson);
+}
+
+AActor* FPrefabSaveManager::SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation)
+{
+	return SpawnPrefab(World, PrefabNameOrPath, SpawnLocation, FRotator());
+}
+
+AActor* FPrefabSaveManager::SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation, const FRotator& SpawnRotation)
+{
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	AActor* Actor = LoadPrefabActor(World, PrefabNameOrPath);
+	if (!Actor)
+	{
+		return nullptr;
+	}
+
+	// The actor is added to the world only after all prefab components/properties are restored.
+	// This prevents LuaScriptComponent::BeginPlay from running before the prefab data is ready.
 	Actor->SetActorLocation(SpawnLocation);
+	Actor->SetActorRotation(SpawnRotation);
+	World->AddActor(Actor);
 
-	World->RemoveActorToOctree(Actor);
-	World->InsertActorToOctree(Actor);
-	
-	if (World->HasBegunPlay() && !Actor->HasActorBegunPlay() && !Actor->IsPooledActorInactive())
-	{
-		Actor->BeginPlay();
-	}
-
-	std::cout << "[Prefab] Spawned: " << PrefabName << " at (" << SpawnLocation.X << ", " << SpawnLocation.Y << ", " << SpawnLocation.Z << ")\n";
+	std::cout << "[Prefab] Spawned: " << PrefabNameOrPath << " at ("
+		<< SpawnLocation.X << ", " << SpawnLocation.Y << ", " << SpawnLocation.Z << ")\n";
 
 	return Actor;
 }
 
-bool FPrefabSaveManager::DoesPrefabExist(const FString& PrefabName)
+bool FPrefabSaveManager::DoesPrefabExist(const FString& PrefabNameOrPath)
 {
-	std::wstring PrefabDir = FPaths::PrefabDir();
-	std::filesystem::path FileDestination = std::filesystem::path(PrefabDir) / (FPaths::ToWide(PrefabName) + PrefabExtension);
-	return std::filesystem::exists(FileDestination);
+	return !PrefabNameOrPath.empty() && std::filesystem::exists(ResolvePrefabFilePath(PrefabNameOrPath));
 }
 
 TArray<FString> FPrefabSaveManager::GetPrefabList()

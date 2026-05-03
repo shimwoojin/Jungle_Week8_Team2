@@ -66,6 +66,30 @@ namespace SceneKeys
 	static constexpr const char* EditorOnlyComponent = "bEditorOnly";
 }
 
+static UActorComponent* FindReusableNonSceneComponent(AActor* Owner, const string& ClassName, TSet<UActorComponent*>& UsedComponents)
+{
+	if (!Owner)
+	{
+		return nullptr;
+	}
+
+	for (UActorComponent* Component : Owner->GetComponents())
+	{
+		if (!Component || Component->IsA<USceneComponent>() || UsedComponents.count(Component) > 0)
+		{
+			continue;
+		}
+
+		if (Component->GetClass() && ClassName == Component->GetClass()->GetName())
+		{
+			UsedComponents.insert(Component);
+			return Component;
+		}
+	}
+
+	return nullptr;
+}
+
 static void SerializeComponentEditorMetadata(json::JSON& Node, const UActorComponent* Comp)
 {
 	if (!Comp)
@@ -591,7 +615,7 @@ void FSceneSaveManager::LoadSceneFromJSON(const string& filepath, FWorldContext&
 	OutWorldContext.ContextHandle = FName(ContextHandle);
 }
 
-AActor* FSceneSaveManager::DeserializeActor(UWorld* World, json::JSON& ActorJSON, std::unordered_map<string, AActor*>* CreatedFromPrimitives)
+AActor* FSceneSaveManager::DeserializeActor(UWorld* World, json::JSON& ActorJSON, std::unordered_map<string, AActor*>* CreatedFromPrimitives, const FActorDeserializeOptions& Options)
 {
 	using namespace json;
 	string ActorClass = ActorJSON[SceneKeys::ClassName].ToString();
@@ -609,7 +633,10 @@ AActor* FSceneSaveManager::DeserializeActor(UWorld* World, json::JSON& ActorJSON
 		UObject* ActorObj = FObjectFactory::Get().Create(ActorClass, World);
 		if (!ActorObj || !ActorObj->IsA<AActor>()) return nullptr;
 		Actor = static_cast<AActor*>(ActorObj);
-		World->AddActor(Actor);
+		if (Options.bAddToWorld)
+		{
+			World->AddActor(Actor);
+		}
 	}
 
 	if (ActorJSON.hasKey(SceneKeys::Visible)) {
@@ -647,12 +674,91 @@ AActor* FSceneSaveManager::DeserializeActor(UWorld* World, json::JSON& ActorJSON
 		}
 	}
 
-	if (!Actor->IsA<AStaticMeshActor>() || !Actor->GetRootComponent())
+	if (Options.bInitDefaultComponentsIfMissing && (!Actor->IsA<AStaticMeshActor>() || !Actor->GetRootComponent()))
 	{
 		Actor->InitDefaultComponents();
 	}
 
 	return Actor;
+}
+
+bool FSceneSaveManager::ApplyPrefabDataToActor(AActor* Actor, json::JSON& ActorJSON)
+{
+	using json::JSON;
+
+	if (!Actor)
+	{
+		return false;
+	}
+
+	if (ActorJSON.hasKey(SceneKeys::Visible))
+	{
+		Actor->SetVisible(ActorJSON[SceneKeys::Visible].ToBool());
+	}
+
+	if (ActorJSON.hasKey(SceneKeys::RootComponent))
+	{
+		JSON& RootJSON = ActorJSON[SceneKeys::RootComponent];
+		if (Actor->GetRootComponent())
+		{
+			DeserializeSceneComponentIntoExisting(Actor->GetRootComponent(), RootJSON, Actor);
+		}
+		else
+		{
+			USceneComponent* Root = DeserializeSceneComponentTree(RootJSON, Actor);
+			if (Root)
+			{
+				Actor->SetRootComponent(Root);
+			}
+		}
+	}
+
+	if (ActorJSON.hasKey(SceneKeys::NonSceneComponents))
+	{
+		TSet<UActorComponent*> ReusedComponents;
+		for (auto& CompJSON : ActorJSON[SceneKeys::NonSceneComponents].ArrayRange())
+		{
+			string CompClass = CompJSON[SceneKeys::ClassName].ToString();
+			if (CompClass.empty())
+			{
+				continue;
+			}
+
+			UActorComponent* Comp = FindReusableNonSceneComponent(Actor, CompClass, ReusedComponents);
+			if (!Comp)
+			{
+				UObject* CompObj = FObjectFactory::Get().Create(CompClass, Actor);
+				if (!CompObj || !CompObj->IsA<UActorComponent>())
+				{
+					continue;
+				}
+
+				Comp = static_cast<UActorComponent*>(CompObj);
+				Actor->RegisterComponent(Comp);
+			}
+
+			if (CompJSON.hasKey(SceneKeys::Properties))
+			{
+				JSON& PropsJSON = CompJSON[SceneKeys::Properties];
+				DeserializeProperties(Comp, PropsJSON);
+			}
+			DeserializeComponentEditorMetadata(Comp, CompJSON);
+			EnsureEditorBillboardMetadata(Comp);
+		}
+	}
+
+	if (!Actor->IsA<AStaticMeshActor>() || !Actor->GetRootComponent())
+	{
+		Actor->InitDefaultComponents();
+	}
+
+	if (UWorld* World = Actor->GetWorld())
+	{
+		World->RemoveActorToOctree(Actor);
+		World->InsertActorToOctree(Actor);
+	}
+
+	return true;
 }
 
 USceneComponent* FSceneSaveManager::DeserializeSceneComponentTree(json::JSON& Node, AActor* Owner)

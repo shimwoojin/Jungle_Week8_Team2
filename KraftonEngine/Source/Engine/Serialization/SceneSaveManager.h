@@ -2,6 +2,7 @@
 
 #include <string>
 #include <filesystem>
+#include <unordered_map>
 #include "Core/CoreTypes.h"
 #include "Platform/Paths.h"
 #include "GameFramework/WorldContext.h"
@@ -18,6 +19,12 @@ namespace json
 {
 	class JSON;
 }
+
+struct FActorDeserializeOptions
+{
+	bool bAddToWorld = true;
+	bool bInitDefaultComponentsIfMissing = true;
+};
 
 #include "Core/PropertyTypes.h"
 
@@ -51,7 +58,8 @@ public:
 
 	// ---- Actor/Component Serialization for Prefabs ----
 	static json::JSON SerializeActor(AActor* Actor);
-	static AActor* DeserializeActor(UWorld* World, json::JSON& ActorJSON, std::unordered_map<string, AActor*>* CreatedFromPrimitives = nullptr);
+	static AActor* DeserializeActor(UWorld* World, json::JSON& ActorJSON, std::unordered_map<string, AActor*>* CreatedFromPrimitives = nullptr, const FActorDeserializeOptions& Options = FActorDeserializeOptions());
+	static bool ApplyPrefabDataToActor(AActor* Actor, json::JSON& ActorJSON);
 	
 	static json::JSON SerializeSceneComponentTree(USceneComponent* Comp);
 	static USceneComponent* DeserializeSceneComponentTree(json::JSON& Node, AActor* Owner);
