@@ -1,4 +1,4 @@
-#include "Editor/EditorEngine.h"
+﻿#include "Editor/EditorEngine.h"
 
 #include "Profiling/StartupProfiler.h"
 #include "Core/Notification.h"
@@ -187,7 +187,7 @@ void UEditorEngine::ApplyTransformSettingsToGizmo()
 		Settings.bEnableScaleSnap, Settings.ScaleSnapSize);
 }
 
-// ─── PIE (Play In Editor) ────────────────────────────────
+// ─── PIE (Play In Ediator) ────────────────────────────────
 // UE 패턴 요약: Request는 단일 슬롯(std::optional)에 저장만 하고 즉시 실행하지 않는다.
 // 실제 StartPIE는 다음 Tick 선두의 StartQueuedPlaySessionRequest에서 일어난다.
 // 이유는 UI 콜백/트랜잭션 도중 같은 불안정한 타이밍을 피하기 위함.
@@ -348,6 +348,7 @@ void UEditorEngine::StartPlayInEditorSession(const FRequestPlaySessionParams& Pa
 	//    UWorld::BeginPlay가 bHasBegunPlay를 먼저 세팅하므로 BeginPlay 도중
 	//    SpawnActor로 만든 신규 액터도 자동으로 BeginPlay된다.
 	PIEWorld->BeginPlay();
+	SoundManager.PlayBGM();
 }
 
 void UEditorEngine::EndPlayMap()
@@ -422,6 +423,7 @@ void UEditorEngine::EndPlayMap()
 	PlayInEditorSessionInfo.reset();
 	PIEControlMode = EPIEControlMode::Possessed;
 	InputSystem::Get().ResetCaptureStateForPIEEnd();
+	SoundManager.StopBGM();
 }
 
 bool UEditorEngine::TogglePIEControlMode()

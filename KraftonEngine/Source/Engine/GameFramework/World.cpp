@@ -361,6 +361,11 @@ void UWorld::UpdateCollision()
 	WorldCollisionSystem.UpdateCollision();
 }
 
+bool UWorld::HasBlockingOverlapForActor(AActor* MovingActor, FHitResult* OutHit)
+{
+	return WorldCollisionSystem.HasBlockingOverlapForActor(MovingActor, OutHit);
+}
+
 void UWorld::ApplyCollisionDebugVisualization()
 {
 	for (AActor* Actor : GetActors())
