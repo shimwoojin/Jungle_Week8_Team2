@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Object/Object.h"
 #include "GameFramework/World.h"
@@ -6,7 +6,7 @@
 #include "Render/Pipeline/Renderer.h"
 #include "Render/Pipeline/IRenderPipeline.h"
 #include "Runtime/TaskScheduler.h"
-
+#include "Sound/SoundManager.h"
 #include <memory>
 
 class FWindowsWindow;
@@ -74,7 +74,7 @@ protected:
 	FTimer* Timer = nullptr;
 
 	UGameViewportClient* GameViewportClient = nullptr;
-
+	FSoundManager SoundManager;
 	FRenderer Renderer;
 	FTaskScheduler TaskScheduler;
 

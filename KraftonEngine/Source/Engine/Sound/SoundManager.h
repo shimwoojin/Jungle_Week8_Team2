@@ -12,7 +12,7 @@ enum class SoundEffect : uint32
 };
 
 
-class SoundManager
+class FSoundManager
 {
 public:
 	// sound file mapping 
@@ -25,10 +25,10 @@ public:
 	void LoadEffect(SoundEffect ID, const std::wstring& FilePath);
 	void PlayEffect(SoundEffect ID);
 
-private:
 
-	TMap<SoundEffect, sf::SoundBuffer> SoundBufferMap;
-	TMap < SoundEffect, sf::Sound> Sounds;
+private:
+	TMap<SoundEffect, std::unique_ptr<sf::SoundBuffer>> SoundBufferMap;
+	TMap<SoundEffect, std::unique_ptr<sf::Sound>>       Sounds;
 	sf::Music m_bgm; 
 
 

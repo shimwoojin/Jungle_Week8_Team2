@@ -1,8 +1,8 @@
 ﻿#include "SoundManager.h"
 
-void SoundManager::initialize()
+void FSoundManager::initialize()
 {
-	if (!m_bgm.openFromFile(FPaths::Combine(FPaths::AssetDir() , L"Sound/Background.wav")))
+	if (!m_bgm.openFromFile(FPaths::ToUtf8(FPaths::Combine(FPaths::AssetDir() , L"Sound/BackgroundMusic.wav"))))
 	{
 		throw std::runtime_error("BGM Load Failed : Sound/BackGround.wav" );
 	}
@@ -16,31 +16,30 @@ void SoundManager::initialize()
 
 }
 
-void SoundManager::PlayBGM()
+void FSoundManager::PlayBGM()
 {
 	m_bgm.play();
 }
 
-void SoundManager::StopBGM()
+void FSoundManager::StopBGM()
 {
 	m_bgm.stop();
 }
 
-void SoundManager::LoadEffect(SoundEffect ID, const std::wstring& FilePath)
+void FSoundManager::LoadEffect(SoundEffect ID, const std::wstring& FilePath)
 {
-	// SoundBufferMap[ID]가 없으면 default 생성, 있으면 덮어씀
-	sf::SoundBuffer& buffer = SoundBufferMap[ID];
+	auto buffer = std::make_unique<sf::SoundBuffer>();
+	if (!buffer.get()->loadFromFile(FPaths::ToUtf8(FilePath)))
 
-	if (!buffer.loadFromFile(FilePath))
-	{
-		throw std::runtime_error("Effect Load Failed ");
-	}
+		throw std::runtime_error("Effect Load Failed");
 
-	Sounds[ID].setBuffer(buffer);
-
+	// unique_ptr로 힙에 생성 → 복사 없이 포인터만 map에 저장
+	SoundBufferMap[ID] = std::move(buffer);
+	Sounds[ID] = std::make_unique<sf::Sound>(*SoundBufferMap[ID]);
 }
 
-void SoundManager::PlayEffect(SoundEffect ID)
+
+void FSoundManager::PlayEffect(SoundEffect ID)
 {
 	auto it = Sounds.find(ID);
 	if (it == Sounds.end())
@@ -48,6 +47,6 @@ void SoundManager::PlayEffect(SoundEffect ID)
 		throw std::runtime_error("Effect not loaded");
 	}
 
-	it->second.play();
+	it->second.get()->play();
 
 }
