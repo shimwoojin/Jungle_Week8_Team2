@@ -1,4 +1,4 @@
-﻿#include "SceneSaveManager.h"
+#include "SceneSaveManager.h"
 
 #include <iostream>
 #include <fstream>
@@ -8,6 +8,7 @@
 #include "SimpleJSON/json.hpp"
 #include "GameFramework/World.h"
 #include "GameFramework/AActor.h"
+#include "GameFramework/PlayerController.h"
 #include "Component/SceneComponent.h"
 #include "Component/ActorComponent.h"
 #include "Component/StaticMeshComponent.h"
@@ -15,6 +16,7 @@
 #include "Component/DecalComponent.h"
 #include "Component/HeightFogComponent.h"
 #include "Component/Light/LightComponentBase.h"
+#include "Component/ControllerInputComponent.h"
 #include "GameFramework/StaticMeshActor.h"
 #include "Object/Object.h"
 #include "Object/ObjectFactory.h"
@@ -164,6 +166,35 @@ void FSceneSaveManager::SaveSceneAsJSON(const string& InSceneName, FWorldContext
 	}
 }
 
+bool FSceneSaveManager::SaveWorldToJSONFile(const std::wstring& AbsoluteFilePath, FWorldContext& WorldContext, UCameraComponent* PerspectiveCam)
+{
+	using namespace json;
+
+	if (!WorldContext.World || AbsoluteFilePath.empty())
+	{
+		return false;
+	}
+
+	std::filesystem::path FileDestination(AbsoluteFilePath);
+	if (FileDestination.has_parent_path())
+	{
+		std::filesystem::create_directories(FileDestination.parent_path());
+	}
+
+	JSON Root = SerializeWorld(WorldContext.World, WorldContext, PerspectiveCam);
+	Root[SceneKeys::Version] = 2;
+	Root[SceneKeys::Name] = FPaths::ToUtf8(FileDestination.stem().wstring());
+
+	std::ofstream File(FileDestination, std::ios::binary);
+	if (!File.is_open())
+	{
+		return false;
+	}
+
+	File << Root.dump();
+	return true;
+}
+
 json::JSON FSceneSaveManager::SerializeWorld(UWorld* World, const FWorldContext& Ctx, UCameraComponent* PerspectiveCam)
 {
 	using namespace json;
@@ -259,6 +290,7 @@ json::JSON FSceneSaveManager::SerializeActor(AActor* Actor)
 	using namespace json;
 	JSON a = json::Object();
 	a[SceneKeys::ClassName] = Actor->GetClass()->GetName();
+	a["ActorUUID"] = static_cast<int>(Actor->GetUUID());
 	a[SceneKeys::Visible] = Actor->IsVisible();
 
 	// RootComponent 트리 직렬화
@@ -394,6 +426,9 @@ json::JSON FSceneSaveManager::SerializePropertyValue(const FPropertyDescriptor& 
 		}
 		return outer;
 	}
+
+	case EPropertyType::ActorRef:
+		return JSON(static_cast<int>(*static_cast<uint32*>(Prop.ValuePtr)));
 
 	default:
 		return JSON();
@@ -596,6 +631,10 @@ void FSceneSaveManager::LoadSceneFromJSON(const string& filepath, FWorldContext&
 				World->AddActor(Actor);
 			}
 
+			if (ActorJSON.hasKey("ActorUUID")) {
+				Actor->SetUUID(static_cast<uint32>(ActorJSON["ActorUUID"].ToInt()));
+			}
+
 			if (ActorJSON.hasKey(SceneKeys::Visible)) {
 				Actor->SetVisible(ActorJSON[SceneKeys::Visible].ToBool());
 			}
@@ -638,6 +677,16 @@ void FSceneSaveManager::LoadSceneFromJSON(const string& filepath, FWorldContext&
 
 			World->RemoveActorToOctree(Actor);
 			World->InsertActorToOctree(Actor);
+		}
+	}
+
+	// Restore controller possession after all actors and their UUIDs are loaded
+	for (APlayerController* PC : World->GetPlayerControllers()) {
+		UControllerInputComponent* Input = PC->FindControllerInputComponent();
+		if (!Input || Input->PossessedActorUUID == 0) continue;
+		if (AActor* Possessed = World->FindActorByUUIDInWorld(Input->PossessedActorUUID))
+		{
+			PC->Possess(Possessed);
 		}
 	}
 
@@ -823,6 +872,10 @@ void FSceneSaveManager::DeserializePropertyValue(FPropertyDescriptor& Prop, json
 		}
 		break;
 	}
+
+	case EPropertyType::ActorRef:
+		*static_cast<uint32*>(Prop.ValuePtr) = static_cast<uint32>(Value.ToInt());
+		break;
 
 	default:
 		break;

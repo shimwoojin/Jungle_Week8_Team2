@@ -11,11 +11,37 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Pawn.h"
 #include "Component/ActorComponent.h"
+#include "Component/Movement/MovementComponent.h"
+#include "Component/ControllerInputComponent.h"
+#include "Object/Object.h"
 #include <algorithm>
 #include "Profiling/Stats.h"
 
 IMPLEMENT_CLASS(UWorld, UObject)
 
+static void RemapActor(UWorld* NewWorld, const TMap<uint32, uint32>& ActorUUIDRemap)
+{
+	if (!NewWorld)
+	{
+		return;
+	}
+
+	for (AActor* Actor : NewWorld->GetActors())
+	{
+		if (!Actor)
+		{
+			continue;
+		}
+
+		for (UActorComponent* Component : Actor->GetComponents())
+		{
+			if (Component)
+			{
+				Component->RemapActorReferences(ActorUUIDRemap);
+			}
+		}
+	}
+}
 
 UWorld::~UWorld()
 {
@@ -39,11 +65,22 @@ UObject* UWorld::Duplicate(UObject* NewOuter) const
 	NewWorld->SetOuter(NewOuter);
 	NewWorld->InitWorld(); // Partition/VisibleSet 초기화 — 이거 없으면 복제 액터가 렌더링되지 않음
 
+	TMap<uint32, uint32> ActorUUIDRemap;
+
 	for (AActor* Src : GetActors())
 	{
 		if (!Src) continue;
-		Src->Duplicate(NewWorld);
+
+		AActor* Dst = Cast<AActor>(Src->Duplicate(NewWorld));
+		if (!Dst)
+		{
+			continue;
+		}
+
+		ActorUUIDRemap[Src->GetUUID()] = Dst->GetUUID();
 	}
+
+	RemapActor(NewWorld, ActorUUIDRemap);
 
 	NewWorld->PostDuplicate();
 	return NewWorld;
@@ -57,11 +94,22 @@ UWorld* UWorld::DuplicateAs(EWorldType InWorldType) const
 	NewWorld->SetWorldType(InWorldType);
 	NewWorld->InitWorld();
 
+	TMap<uint32, uint32> ActorUUIDRemap;
+
 	for (AActor* Src : GetActors())
 	{
 		if (!Src) continue;
-		Src->Duplicate(NewWorld);
+
+		AActor* Dst = Cast<AActor>(Src->Duplicate(NewWorld));
+		if (!Dst)
+		{
+			continue;
+		}
+
+		ActorUUIDRemap[Src->GetUUID()] = Dst->GetUUID();
 	}
+
+	RemapActor(NewWorld, ActorUUIDRemap);
 
 	NewWorld->PostDuplicate();
 	return NewWorld;
@@ -461,7 +509,7 @@ void UWorld::CleanupActorReferences(AActor* Actor)
 			continue;
 		}
 
-		if (Controller->GetPawn() == Actor)
+		if (Controller->GetPossessedActor() == Actor)
 		{
 			Controller->UnPossess();
 		}
@@ -549,6 +597,37 @@ APawn* UWorld::FindFirstPawn() const
 	return nullptr;
 }
 
+AActor* UWorld::FindFirstPossessableActor() const
+{
+	if (!PersistentLevel) return nullptr;
+	for (AActor* Actor : PersistentLevel->GetActors())
+	{
+		for (UActorComponent* Comp : Actor->GetComponents())
+		{
+			if (Cast<UMovementComponent>(Comp))
+			{
+				return Actor;
+			}
+		}
+	}
+	return nullptr;
+}
+AActor* UWorld::FindActorByUUIDInWorld(uint32 ActorUUID) const
+{
+	if (!PersistentLevel || ActorUUID == 0)
+	{
+		return nullptr;
+	}
+	for (AActor* Actor : PersistentLevel->GetActors())
+	{
+		if (Actor && Actor->GetUUID() == ActorUUID)
+		{
+			return Actor;
+		}
+	}
+	return nullptr;
+}
+
 APlayerController* UWorld::CreatePlayerController()
 {
 	APlayerController* Controller = SpawnActor<APlayerController>();
@@ -579,19 +658,27 @@ void UWorld::AutoWirePlayerController(APlayerController* PreferredController)
 		return;
 	}
 
-	if (!Controller->GetPawn())
+	if (!Controller->GetPossessedActor())
 	{
-		if (APawn* Pawn = FindFirstPawn())
+		if (UControllerInputComponent* Input = Controller->FindControllerInputComponent())
 		{
-			Controller->Possess(Pawn);
+			if (AActor* Target = FindActorByUUIDInWorld(Input->PossessedActorUUID))
+			{
+				Controller->Possess(Target);
+			}
+		}
+		if (!Controller->GetPossessedActor())
+		{
+			if (AActor* Target = FindFirstPossessableActor())
+				Controller->Possess(Target);
 		}
 	}
 
 	if (!Controller->GetViewTarget())
 	{
-		if (APawn* Pawn = Controller->GetPawn())
+		if (AActor* Target = Controller->GetPossessedActor())
 		{
-			Controller->SetViewTarget(Pawn);
+			Controller->SetViewTarget(Target);
 		}
 		else
 		{
