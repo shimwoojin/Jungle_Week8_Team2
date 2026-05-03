@@ -61,16 +61,16 @@ bool FPrefabSaveManager::SaveActorAsPrefab(AActor* Actor, const FString& PrefabN
 		return false;
 	}
 
+	std::wstring PrefabDir = FPaths::PrefabDir();
+	FPaths::CreateDir(PrefabDir);
+	std::filesystem::path FileDestination = ResolvePrefabFilePath(PrefabName);
+
 	using namespace json;
 	JSON Root = json::Object();
 	Root["Version"] = 1;
 	Root["Type"] = "ActorPrefab";
-	Root["Name"] = PrefabName.c_str();
+	Root["Name"] = FPaths::ToUtf8(FileDestination.stem().wstring()).c_str();
 	Root["RootActor"] = FSceneSaveManager::SerializeActor(Actor);
-
-	std::wstring PrefabDir = FPaths::PrefabDir();
-	FPaths::CreateDir(PrefabDir);
-	std::filesystem::path FileDestination = ResolvePrefabFilePath(PrefabName);
 	if (FileDestination.has_parent_path())
 	{
 		std::filesystem::create_directories(FileDestination.parent_path());
@@ -189,17 +189,27 @@ bool FPrefabSaveManager::ApplyPrefabToActor(AActor* Actor, const FString& Prefab
 
 AActor* FPrefabSaveManager::SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation)
 {
-	return SpawnPrefab(World, PrefabNameOrPath, SpawnLocation, FRotator());
+	return SpawnPrefab(World, PrefabNameOrPath, SpawnLocation, FRotator(), true);
+}
+
+AActor* FPrefabSaveManager::SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation, bool bRenewActorUUID)
+{
+	return SpawnPrefab(World, PrefabNameOrPath, SpawnLocation, FRotator(), bRenewActorUUID);
 }
 
 AActor* FPrefabSaveManager::SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation, const FRotator& SpawnRotation)
+{
+	return SpawnPrefab(World, PrefabNameOrPath, SpawnLocation, SpawnRotation, true);
+}
+
+AActor* FPrefabSaveManager::SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation, const FRotator& SpawnRotation, bool bRenewActorUUID)
 {
 	if (!World)
 	{
 		return nullptr;
 	}
 
-	AActor* Actor = LoadPrefabActor(World, PrefabNameOrPath);
+	AActor* Actor = LoadPrefabActor(World, PrefabNameOrPath, bRenewActorUUID);
 	if (!Actor)
 	{
 		return nullptr;

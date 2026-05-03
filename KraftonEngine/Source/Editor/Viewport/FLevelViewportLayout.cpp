@@ -1031,13 +1031,15 @@ void FLevelViewportLayout::RenderViewportUI(float DeltaTime)
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PrefabContentItem"))
 			{
 				FContentItem ContentItem = *reinterpret_cast<const FContentItem*>(payload->Data);
-				FString PrefabName = FPaths::ToUtf8(ContentItem.Path.stem().wstring());
+				FString PrefabPath = FPaths::ToUtf8(ContentItem.Path.wstring());
 				
 				FVector SpawnLocation(0, 0, 0);
 				FPoint MP = { ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y };
 				TryComputePlacementLocation(GetActiveViewportSlotIndex(), MP, SpawnLocation);
 
-				AActor* SpawnedActor = FPrefabSaveManager::SpawnPrefab(Editor->GetWorld(), PrefabName, SpawnLocation);
+				// Content Browser placement is prefab instancing, not scene loading.
+				// Renew the Actor UUID so multiple drops of the same prefab do not collide.
+				AActor* SpawnedActor = FPrefabSaveManager::SpawnPrefab(Editor->GetWorld(), PrefabPath, SpawnLocation, true);
 				if (SpawnedActor && SelectionManager)
 				{
 					SelectionManager->Select(SpawnedActor);

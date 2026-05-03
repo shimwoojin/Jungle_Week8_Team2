@@ -24,7 +24,9 @@ public:
 	static AActor* LoadPrefabActor(UWorld* World, const FString& PrefabNameOrPath, bool bRenewActorUUID);
 	static bool ApplyPrefabToActor(AActor* Actor, const FString& PrefabNameOrPath);
 	static AActor* SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation);
+	static AActor* SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation, bool bRenewActorUUID);
 	static AActor* SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation, const FRotator& SpawnRotation);
+	static AActor* SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation, const FRotator& SpawnRotation, bool bRenewActorUUID);
 	static bool DoesPrefabExist(const FString& PrefabNameOrPath);
 	static TArray<FString> GetPrefabList();
 };

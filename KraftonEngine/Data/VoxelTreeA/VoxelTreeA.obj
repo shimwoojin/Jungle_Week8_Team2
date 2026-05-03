@@ -1,7 +1,7 @@
 # Blender 5.1.0
 # www.blender.org
 mtllib VoxelTreeAMat.mtl
-o moreTrees
+o VoxelTreeA
 v 0.008568 1.575874 0.697182
 v 0.208568 1.575874 0.697182
 v 0.008568 1.575874 0.897182
