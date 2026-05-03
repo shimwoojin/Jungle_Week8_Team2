@@ -1,4 +1,4 @@
-#include "Editor/Viewport/FLevelViewportLayout.h"
+﻿#include "Editor/Viewport/FLevelViewportLayout.h"
 
 #include "Editor/EditorEngine.h"
 #include "Editor/Viewport/LevelEditorViewportClient.h"
@@ -1031,13 +1031,15 @@ void FLevelViewportLayout::RenderViewportUI(float DeltaTime)
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PrefabContentItem"))
 			{
 				FContentItem ContentItem = *reinterpret_cast<const FContentItem*>(payload->Data);
-				FString PrefabName = FPaths::ToUtf8(ContentItem.Path.stem().wstring());
+				FString PrefabPath = FPaths::ToUtf8(ContentItem.Path.wstring());
 				
 				FVector SpawnLocation(0, 0, 0);
 				FPoint MP = { ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y };
 				TryComputePlacementLocation(GetActiveViewportSlotIndex(), MP, SpawnLocation);
 
-				AActor* SpawnedActor = FPrefabSaveManager::SpawnPrefab(Editor->GetWorld(), PrefabName, SpawnLocation);
+				// Content Browser placement is prefab instancing, not scene loading.
+				// Renew the Actor UUID so multiple drops of the same prefab do not collide.
+				AActor* SpawnedActor = FPrefabSaveManager::SpawnPrefab(Editor->GetWorld(), PrefabPath, SpawnLocation, true);
 				if (SpawnedActor && SelectionManager)
 				{
 					SelectionManager->Select(SpawnedActor);
@@ -1868,9 +1870,6 @@ void FLevelViewportLayout::RenderViewportPlaceActorPopup()
 		};
 
 		PlaceActorMenuItem("Empty Actor", EViewportPlaceActorType::EmptyActor);
-		PlaceActorMenuItem("Cube", EViewportPlaceActorType::Cube);
-		PlaceActorMenuItem("Sphere", EViewportPlaceActorType::Sphere);
-		PlaceActorMenuItem("Cylinder", EViewportPlaceActorType::Cylinder);
 		PlaceActorMenuItem("Decal", EViewportPlaceActorType::Decal);
 		PlaceActorMenuItem("Height Fog", EViewportPlaceActorType::HeightFog);
 		PlaceActorMenuItem("Ambient Light", EViewportPlaceActorType::AmbientLight);
@@ -1973,36 +1972,6 @@ AActor* FLevelViewportLayout::SpawnActorFromViewportMenu(EViewportPlaceActorType
 
 	switch (Type)
 	{
-	case EViewportPlaceActorType::Cube:
-	{
-		AStaticMeshActor* Actor = World->SpawnActor<AStaticMeshActor>();
-		if (Actor)
-		{
-			Actor->InitDefaultComponents("Data/BasicShape/Cube.OBJ");
-			SpawnedActor = Actor;
-		}
-		break;
-	}
-	case EViewportPlaceActorType::Sphere:
-	{
-		AStaticMeshActor* Actor = World->SpawnActor<AStaticMeshActor>();
-		if (Actor)
-		{
-			Actor->InitDefaultComponents("Data/BasicShape/Sphere.OBJ");
-			SpawnedActor = Actor;
-		}
-		break;
-	}
-	case EViewportPlaceActorType::Cylinder:
-	{
-		AStaticMeshActor* Actor = World->SpawnActor<AStaticMeshActor>();
-		if (Actor)
-		{
-			Actor->InitDefaultComponents("Data/BasicShape/Cylinder.obj");
-			SpawnedActor = Actor;
-		}
-		break;
-	}
 	case EViewportPlaceActorType::Decal:
 	{
 		ADecalActor* Actor = World->SpawnActor<ADecalActor>();

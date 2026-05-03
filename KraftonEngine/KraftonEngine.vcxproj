@@ -206,11 +206,31 @@
       <ExceptionHandling>Async</ExceptionHandling>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>
+        $(VcpkgInstalledRoot)\include\luajit;
+        $(VcpkgInstalledRoot)\include;
+        %(AdditionalIncludeDirectories)
+;     </AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>
+        $(VcpkgInstalledRoot)\lib;
+   $(ProjectDir)ThirdParty\SFML\lib\$(Configuration);       %(AdditionalLibraryDirectories)
+      </AdditionalLibraryDirectories>
+      <AdditionalDependencies>
+        lua51.lib;
+    sfml-audio-d.lib;sfml-window-d.lib;sfml-system-d.lib;    %(AdditionalDependencies)
+      </AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>
+        xcopy /Y /D "$(VcpkgInstalledRoot)\bin\lua51.dll" "$(OutDir)"
+;
+xcopy /Y /D "$(ProjectDir)ThirdParty\SFML\bin\$(Configuration)\*.dll" "$(OutDir)" 
+;  </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -463,6 +483,7 @@
     <ClCompile Include="Source\Engine\Runtime\Engine.cpp" />
     <ClCompile Include="Source\Engine\Runtime\EngineLoop.cpp" />
     <ClCompile Include="Source\Engine\Runtime\Launch.cpp" />
+    <ClCompile Include="Source\Engine\Runtime\LoadingScreen.cpp" />
     <ClCompile Include="Source\Engine\Runtime\ObjectPoolSystem.cpp" />
     <ClCompile Include="Source\Engine\Runtime\TaskScheduler.cpp" />
     <ClCompile Include="Source\Engine\Runtime\WindowsApplication.cpp" />
@@ -484,7 +505,9 @@
     <ClCompile Include="Source\Engine\Scripting\LuaStaticMeshBindings.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaWorldExtendedBindings.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaWorldLibrary.cpp" />
+    <ClCompile Include="Source\Engine\Serialization\PrefabSaveManager.cpp" />
     <ClCompile Include="Source\Engine\Serialization\SceneSaveManager.cpp" />
+    <ClCompile Include="Source\Engine\Sound\SoundManager.cpp" />
     <ClCompile Include="Source\Engine\Texture\Texture2D.cpp" />
     <ClCompile Include="Source\Engine\UI\SSplitter.cpp" />
     <ClCompile Include="Source\Engine\UI\SWindow.cpp" />
@@ -731,6 +754,7 @@
     <ClInclude Include="Source\Engine\Runtime\Engine.h" />
     <ClInclude Include="Source\Engine\Runtime\EngineLoop.h" />
     <ClInclude Include="Source\Engine\Runtime\Launch.h" />
+    <ClInclude Include="Source\Engine\Runtime\LoadingScreen.h" />
     <ClInclude Include="Source\Engine\Runtime\ObjectPoolSystem.h" />
     <ClInclude Include="Source\Engine\Runtime\PooledObjectInterface.h" />
     <ClInclude Include="Source\Engine\Runtime\TaskScheduler.h" />
@@ -747,8 +771,10 @@
     <ClInclude Include="Source\Engine\Scripting\SolInclude.h" />
     <ClInclude Include="Source\Engine\Serialization\Archive.h" />
     <ClInclude Include="Source\Engine\Serialization\MemoryArchive.h" />
+    <ClInclude Include="Source\Engine\Serialization\PrefabSaveManager.h" />
     <ClInclude Include="Source\Engine\Serialization\SceneSaveManager.h" />
     <ClInclude Include="Source\Engine\Serialization\WindowsArchive.h" />
+    <ClInclude Include="Source\Engine\Sound\SoundManager.h" />
     <ClInclude Include="Source\Engine\Texture\Texture2D.h" />
     <ClInclude Include="Source\Engine\UI\SSplitter.h" />
     <ClInclude Include="Source\Engine\UI\SWidget.h" />
@@ -1017,6 +1043,9 @@
   <ItemGroup>
     <None Include="LuaScripts\Game\RowGenerator.lua" />
     <None Include="VcpkgLua.props" />
+  </ItemGroup>
+  <ItemGroup>
+    <Media Include="Sound\BackgroundMusic.wav" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

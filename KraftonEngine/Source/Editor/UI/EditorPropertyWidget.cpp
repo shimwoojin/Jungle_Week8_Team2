@@ -347,9 +347,12 @@ void FEditorPropertyWidget::Render(float DeltaTime)
 			FString SavePath = FEditorFileUtils::SaveFileDialog(Options);
 			if (!SavePath.empty())
 			{
-				std::filesystem::path Path = std::filesystem::path(FPaths::ToWide(SavePath));
-				FString PrefabName = FPaths::ToUtf8(Path.stem().wstring());
-				FPrefabSaveManager::SaveActorAsPrefab(PrimaryActor, PrefabName);
+				// Save to the exact path picked in the dialog, then refresh the content browser
+				// so newly-created prefabs appear without typing "cb refresh".
+				if (FPrefabSaveManager::SaveActorAsPrefab(PrimaryActor, SavePath) && EditorEngine)
+				{
+					EditorEngine->RefreshContentBrowser();
+				}
 			}
 		}
 	}

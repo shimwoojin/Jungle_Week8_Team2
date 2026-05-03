@@ -4,6 +4,7 @@
 #include "Platform/Paths.h"
 #include "GameFramework/AActor.h"
 #include "GameFramework/World.h"
+#include "Component/ActorComponent.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -60,16 +61,16 @@ bool FPrefabSaveManager::SaveActorAsPrefab(AActor* Actor, const FString& PrefabN
 		return false;
 	}
 
+	std::wstring PrefabDir = FPaths::PrefabDir();
+	FPaths::CreateDir(PrefabDir);
+	std::filesystem::path FileDestination = ResolvePrefabFilePath(PrefabName);
+
 	using namespace json;
 	JSON Root = json::Object();
 	Root["Version"] = 1;
 	Root["Type"] = "ActorPrefab";
-	Root["Name"] = PrefabName.c_str();
+	Root["Name"] = FPaths::ToUtf8(FileDestination.stem().wstring()).c_str();
 	Root["RootActor"] = FSceneSaveManager::SerializeActor(Actor);
-
-	std::wstring PrefabDir = FPaths::PrefabDir();
-	FPaths::CreateDir(PrefabDir);
-	std::filesystem::path FileDestination = ResolvePrefabFilePath(PrefabName);
 	if (FileDestination.has_parent_path())
 	{
 		std::filesystem::create_directories(FileDestination.parent_path());
@@ -131,6 +132,11 @@ bool FPrefabSaveManager::LoadPrefabRootActorJson(const FString& PrefabNameOrPath
 
 AActor* FPrefabSaveManager::LoadPrefabActor(UWorld* World, const FString& PrefabNameOrPath)
 {
+	return LoadPrefabActor(World, PrefabNameOrPath, true);
+}
+
+AActor* FPrefabSaveManager::LoadPrefabActor(UWorld* World, const FString& PrefabNameOrPath, bool bRenewActorUUID)
+{
 	if (!World || PrefabNameOrPath.empty())
 	{
 		return nullptr;
@@ -142,11 +148,27 @@ AActor* FPrefabSaveManager::LoadPrefabActor(UWorld* World, const FString& Prefab
 		return nullptr;
 	}
 
+	TMap<uint32, uint32> ActorUUIDRemap;
+
 	FActorDeserializeOptions Options;
 	Options.bAddToWorld = false;
 	Options.bInitDefaultComponentsIfMissing = false;
+	Options.bRestoreActorUUID = !bRenewActorUUID;
+	Options.ActorUUIDRemap = bRenewActorUUID ? &ActorUUIDRemap : nullptr;
 
-	return FSceneSaveManager::DeserializeActor(World, RootActorJson, nullptr, Options);
+	AActor* Actor = FSceneSaveManager::DeserializeActor(World, RootActorJson, nullptr, Options);
+	if (Actor && bRenewActorUUID)
+	{
+		for (UActorComponent* Component : Actor->GetComponents())
+		{
+			if (Component)
+			{
+				Component->RemapActorReferences(ActorUUIDRemap);
+			}
+		}
+	}
+
+	return Actor;
 }
 
 bool FPrefabSaveManager::ApplyPrefabToActor(AActor* Actor, const FString& PrefabNameOrPath)
@@ -167,17 +189,27 @@ bool FPrefabSaveManager::ApplyPrefabToActor(AActor* Actor, const FString& Prefab
 
 AActor* FPrefabSaveManager::SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation)
 {
-	return SpawnPrefab(World, PrefabNameOrPath, SpawnLocation, FRotator());
+	return SpawnPrefab(World, PrefabNameOrPath, SpawnLocation, FRotator(), true);
+}
+
+AActor* FPrefabSaveManager::SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation, bool bRenewActorUUID)
+{
+	return SpawnPrefab(World, PrefabNameOrPath, SpawnLocation, FRotator(), bRenewActorUUID);
 }
 
 AActor* FPrefabSaveManager::SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation, const FRotator& SpawnRotation)
+{
+	return SpawnPrefab(World, PrefabNameOrPath, SpawnLocation, SpawnRotation, true);
+}
+
+AActor* FPrefabSaveManager::SpawnPrefab(UWorld* World, const FString& PrefabNameOrPath, const FVector& SpawnLocation, const FRotator& SpawnRotation, bool bRenewActorUUID)
 {
 	if (!World)
 	{
 		return nullptr;
 	}
 
-	AActor* Actor = LoadPrefabActor(World, PrefabNameOrPath);
+	AActor* Actor = LoadPrefabActor(World, PrefabNameOrPath, bRenewActorUUID);
 	if (!Actor)
 	{
 		return nullptr;

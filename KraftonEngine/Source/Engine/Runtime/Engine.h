@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Object/Object.h"
 #include "GameFramework/World.h"
@@ -6,7 +6,7 @@
 #include "Render/Pipeline/Renderer.h"
 #include "Render/Pipeline/IRenderPipeline.h"
 #include "Runtime/TaskScheduler.h"
-
+#include "Sound/SoundManager.h"
 #include <memory>
 
 class FWindowsWindow;
@@ -23,6 +23,7 @@ public:
 	~UEngine() override = default;
 
 	// Lifecycle
+	virtual void ConfigureWindow(FWindowsWindow* InWindow) {}
 	virtual void Init(FWindowsWindow* InWindow);
 	virtual void Shutdown();
 	virtual void BeginPlay();
@@ -74,7 +75,7 @@ protected:
 	FTimer* Timer = nullptr;
 
 	UGameViewportClient* GameViewportClient = nullptr;
-
+	FSoundManager SoundManager;
 	FRenderer Renderer;
 	FTaskScheduler TaskScheduler;
 
