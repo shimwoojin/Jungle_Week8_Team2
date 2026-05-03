@@ -206,6 +206,11 @@
       <ExceptionHandling>Async</ExceptionHandling>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>
+        $(VcpkgInstalledRoot)\include\luajit;
+        $(VcpkgInstalledRoot)\include;
+        %(AdditionalIncludeDirectories)
+; $(ProjectDir)ThirdParty\SFML\lib\$(Configuration)\      </AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
