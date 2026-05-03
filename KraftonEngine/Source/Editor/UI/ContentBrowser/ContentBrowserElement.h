@@ -68,3 +68,9 @@ public:
 private:
 	FEditorMaterialInspector MaterialInspector;
 };
+
+class PrefabElement final : public ContentBrowserElement
+{
+public:
+	virtual const char* GetDragItemType() override { return "PrefabContentItem"; }
+};
