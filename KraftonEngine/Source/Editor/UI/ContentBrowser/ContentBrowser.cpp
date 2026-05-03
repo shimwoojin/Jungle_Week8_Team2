@@ -6,6 +6,7 @@
 #include "Resource/ResourceManager.h"
 
 #include <algorithm>
+#include <fstream>
 
 namespace
 {
@@ -73,6 +74,49 @@ namespace
 		}
 
 		return pIt == p.end(); // parent 끝까지 다 맞았으면 포함됨
+	}
+
+	constexpr const wchar_t* LuaTemplateContent =
+		L"function BeginPlay() print(\"[BeginPlay] \" .. obj.UUID) obj:PrintLocation() end\n"
+		L"function EndPlay() print(\"[EndPlay] \" .. obj.UUID) obj:PrintLocation() end\n"
+		L"function OnOverlap(OtherActor) OtherActor:PrintLocation(); end\n"
+		L"function Tick(dt) obj.Location = obj.Location + obj.Velocity * dt obj:PrintLocation() end\n";
+
+	std::filesystem::path MakeUniqueLuaTemplatePath(const std::filesystem::path& Directory)
+	{
+		std::filesystem::path Candidate = Directory / L"template.lua";
+		int32 Index = 1;
+
+		while (std::filesystem::exists(Candidate))
+		{
+			Candidate = Directory / (L"template" + std::to_wstring(Index) + L".lua");
+			++Index;
+		}
+
+		return Candidate;
+	}
+
+	bool CreateLuaTemplateScript(const std::filesystem::path& Directory)
+	{
+		if (!std::filesystem::exists(Directory) || !std::filesystem::is_directory(Directory))
+		{
+			return false;
+		}
+
+		const std::filesystem::path TargetPath = MakeUniqueLuaTemplatePath(Directory);
+		std::ofstream File(TargetPath, std::ios::out);
+		if (!File.is_open())
+		{
+			return false;
+		}
+
+		File <<
+			"function BeginPlay()\n\tprint(\"[BeginPlay] \" .. obj.UUID)\n\tobj:PrintLocation()\nend\n\n"
+			"function EndPlay()\n\tprint(\"[EndPlay] \" .. obj.UUID)\n\tobj:PrintLocation()\nend\n\n"
+			"function OnOverlap(OtherActor)\n\tOtherActor:PrintLocation();\nend\n\n"
+			"function Tick(dt)\n\tobj.Location = obj.Location + obj.Velocity * dt\n\tobj:PrintLocation()\nend\n\n";
+
+		return true;
 	}
 }
 
@@ -302,6 +346,19 @@ void FEditorContentBrowserWidget::DrawContents()
 
 		ImGui::SetCursorPos(ImVec2(x, y));
 		CachedBrowserElements[i]->Render(BrowserContext);
+	}
+
+	if (ImGui::BeginPopupContextWindow("ContentBrowserContextMenu", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+	{
+		if (ImGui::MenuItem("Create Lua Script"))
+		{
+			if (CreateLuaTemplateScript(std::filesystem::path(BrowserContext.CurrentPath)))
+			{
+				BrowserContext.bIsNeedRefresh = true;
+			}
+		}
+
+		ImGui::EndPopup();
 	}
 
 	int rowCount = (elementCount + columnCount - 1) / columnCount;
