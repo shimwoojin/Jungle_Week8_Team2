@@ -2,6 +2,7 @@
 
 #include "Editor/EditorEngine.h"
 #include "Editor/UI/EditorFileUtils.h"
+#include "Serialization/PrefabSaveManager.h"
 
 #include "ImGui/imgui.h"
 #include "Component/ActorComponent.h"
@@ -319,6 +320,14 @@ void FEditorPropertyWidget::Render(float DeltaTime)
 			LastSelectedActor = nullptr;
 			ImGui::End();
 			return;
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("Save Prefab"))
+		{
+			FString PrefabName = PrimaryActor->GetFName().ToString();
+			if (PrefabName.empty()) PrefabName = PrimaryActor->GetClass()->GetName();
+			FPrefabSaveManager::SaveActorAsPrefab(PrimaryActor, PrefabName);
 		}
 	}
 
