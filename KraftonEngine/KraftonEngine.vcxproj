@@ -324,6 +324,7 @@
     <ClCompile Include="Source\Engine\Component\ActorComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\BillboardComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\CameraComponent.cpp" />
+    <ClCompile Include="Source\Engine\Component\CameraRigComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Collision\BoxComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Collision\CapsuleComponent.cpp" />
     <ClCompile Include="Source\Engine\Component\Collision\ShapeComponent.cpp" />
@@ -548,6 +549,7 @@
     <ClInclude Include="Source\Engine\Component\ActorComponent.h" />
     <ClInclude Include="Source\Engine\Component\BillboardComponent.h" />
     <ClInclude Include="Source\Engine\Component\CameraComponent.h" />
+    <ClInclude Include="Source\Engine\Component\CameraRigComponent.h" />
     <ClInclude Include="Source\Engine\Component\Collision\BoxComponent.h" />
     <ClInclude Include="Source\Engine\Component\Collision\CapsuleComponent.h" />
     <ClInclude Include="Source\Engine\Component\Collision\CollisionTypes.h" />
