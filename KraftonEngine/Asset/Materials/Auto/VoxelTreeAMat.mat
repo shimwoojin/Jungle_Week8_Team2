@@ -12,6 +12,6 @@
   "RenderPass" : "Opaque",
   "ShaderPath" : "Shaders/Geometry/UberLit.hlsl",
   "Textures" : {
-    "DiffuseTexture" : "Data/VoxelTreeA/VoxelTreeATexture.png"
+    "DiffuseTexture" : "Data/VoxelTrees/VoxelTreeATexture.png"
   }
 }

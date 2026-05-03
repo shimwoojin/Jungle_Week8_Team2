@@ -1,7 +1,7 @@
 {
-  "Name" : "VoxelTreeB",
+  "Name" : "TreeA",
   "RootActor" : {
-    "ActorUUID" : 139,
+    "ActorUUID" : 126,
     "ClassName" : "AActor",
     "NonSceneComponents" : [],
     "RootComponent" : {
@@ -13,9 +13,9 @@
             "Box Extent" : [0.500000, 0.500000, 0.500000],
             "Cast Shadow" : true,
             "Generate Overlap Events" : true,
-            "Location" : [0.000000, 0.000000, -1.365177],
+            "Location" : [0.021731, -0.209835, -1.506031],
             "Rotation" : [-0.000000, 0.000000, 0.000000],
-            "Scale" : [1.000000, 1.000000, 1.000000],
+            "Scale" : [0.810430, 0.812719, 1.578824],
             "Two Sided Shadow" : false,
             "Visible" : true,
             "bEditorOnly" : false,
@@ -29,9 +29,9 @@
             "Box Extent" : [0.500000, 0.500000, 0.500000],
             "Cast Shadow" : true,
             "Generate Overlap Events" : true,
-            "Location" : [0.000000, 0.000000, 0.599699],
+            "Location" : [-0.186316, 0.000000, 0.328719],
             "Rotation" : [-0.000000, 0.000000, 0.000000],
-            "Scale" : [2.897650, 2.964502, 2.390788],
+            "Scale" : [2.716984, 2.753047, 1.884511],
             "Two Sided Shadow" : false,
             "Visible" : true,
             "bEditorOnly" : false,
@@ -43,13 +43,13 @@
         "Blocks Movement" : true,
         "Cast Shadow" : true,
         "Element 0" : {
-          "Path" : "Asset/Materials/Auto/VoxelTreeBMat.mat"
+          "Path" : "Asset/Materials/Auto/VoxelTreeAMat.mat"
         },
         "Generate Overlap Events" : true,
-        "Location" : [11.551250, 1.237627, 1.629344],
+        "Location" : [-10.357006, -12.958379, 6.570107],
         "Rotation" : [-0.000000, 0.000000, 0.000000],
         "Scale" : [1.000000, 1.000000, 1.000000],
-        "Static Mesh" : "Data/VoxelTreeB/VoxelTreeB.obj",
+        "Static Mesh" : "Data/VoxelTrees/VoxelTreeA.obj",
         "Two Sided Shadow" : false,
         "Visible" : true,
         "bEditorOnly" : false,
