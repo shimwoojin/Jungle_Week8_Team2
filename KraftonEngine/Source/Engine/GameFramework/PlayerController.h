@@ -29,12 +29,10 @@ public:
 	void UnPossess();
 	AActor* GetPossessedActor() const;
 
-	void SetViewTarget(AActor* InViewTarget);
-	void SetViewTargetWithBlend(AActor* InViewTarget, const FCameraBlendParams& BlendParams);
-	AActor* GetViewTarget() const;
 
 	void SetActiveCamera(UCameraComponent* Camera);
 	void SetActiveCameraWithBlend(UCameraComponent* Camera);
+	bool SetActiveCameraFromPossessedPawn();
 	void ClearActiveCamera();
 	UCameraComponent* GetActiveCamera() const;
 	UCameraComponent* ResolveViewCamera() const;
@@ -50,7 +48,7 @@ public:
 	void SetControlRotation(const FRotator& InRotation);
 	void AddYawInput(float Value);
 	void AddPitchInput(float Value);
-	bool AddMovementInput(const FVector& WorldDirection, float Scale = 1.0f);
+	bool AddMovementInput(const FVector& WorldDirection, float Scale = 1.0f, float DeltaTime = 0.0f);
 
 private:
 	UCameraComponent* FindCameraOnActor(AActor* Target) const;
@@ -58,9 +56,7 @@ private:
 
 private:
 	AActor* PossessedActor = nullptr;
-	AActor* ViewTarget = nullptr;
 	uint32 PossessedActorUUID = 0;
-	uint32 ViewTargetActorUUID = 0;
 	FRotator ControlRotation;
 	FPlayerCameraManager CameraManager;
 };

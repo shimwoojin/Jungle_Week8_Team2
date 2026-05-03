@@ -467,6 +467,8 @@ void UWorld::Tick(float DeltaTime, ELevelTick TickType)
 
 void UWorld::UpdatePlayerCameraManagers(float DeltaTime)
 {
+	const bool bCanDriveWorldView = GetWorldType() != EWorldType::Editor || HasBegunPlay();
+
 	for (APlayerController* Controller : PlayerControllers)
 	{
 		if (!Controller || !IsActorInWorld(Controller))
@@ -474,11 +476,16 @@ void UWorld::UpdatePlayerCameraManagers(float DeltaTime)
 			continue;
 		}
 
-		Controller->GetCameraManager().UpdateCamera(DeltaTime);
-		if (UCameraComponent* OutputCamera = Controller->ResolveViewCamera())
+		FPlayerCameraManager& Manager = Controller->GetCameraManager();
+		Manager.UpdateCamera(DeltaTime);
+
+		if (bCanDriveWorldView)
 		{
-			SetViewCamera(OutputCamera);
-			SetActiveCamera(OutputCamera);
+			if (UCameraComponent* OutputCamera = Manager.GetOutputCameraIfValid())
+			{
+				SetViewCamera(OutputCamera);
+				SetActiveCamera(OutputCamera);
+			}
 		}
 	}
 }
@@ -550,10 +557,6 @@ void UWorld::CleanupActorReferences(AActor* Actor)
 		if (Controller->GetPossessedActor() == Actor)
 		{
 			Controller->UnPossess();
-		}
-		if (Controller->GetViewTarget() == Actor)
-		{
-			Controller->SetViewTarget(nullptr);
 		}
 	}
 
@@ -738,41 +741,26 @@ void UWorld::AutoWirePlayerController(APlayerController* PreferredController)
 
 	if (!Controller->GetPossessedActor())
 	{
-		if (AActor* Target = FindFirstPossessableActor())
+		if (APawn* Pawn = FindFirstPawn())
+		{
+			Controller->Possess(Pawn);
+		}
+		else if (AActor* Target = FindFirstPossessableActor())
 		{
 			Controller->Possess(Target);
 		}
 	}
 
-	if (!Controller->GetViewTarget())
+	if (!Controller->GetActiveCamera())
 	{
-		if (AActor* Target = Controller->GetPossessedActor())
-		{
-			Controller->SetViewTarget(Target);
-		}
-		else
-		{
-			UCameraComponent* Camera = GetActiveCamera();
-			if (!Camera)
-			{
-				Camera = FindFirstCamera();
-			}
-			if (Camera)
-			{
-				Controller->SetViewTarget(Camera->GetOwner());
-			}
-		}
+		Controller->SetActiveCameraFromPossessedPawn();
 	}
 
-	if (!GetActiveCamera())
+	if (UCameraComponent* Camera = ResolveGameplayViewCamera(Controller))
 	{
-		if (UCameraComponent* Camera = ResolveGameplayViewCamera(Controller))
-		{
-			SetActiveCamera(Camera);
-		}
+		SetViewCamera(Camera);
+		SetActiveCamera(Camera);
 	}
-
-	SetViewCamera(ResolveGameplayViewCamera(Controller));
 }
 
 UCameraComponent* UWorld::ResolveGameplayViewCamera(APlayerController* PreferredController) const

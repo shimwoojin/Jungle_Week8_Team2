@@ -28,10 +28,7 @@ void UGameClientEngine::InitCameraManager()
 		World->AutoWirePlayerController(PlayerController);
 	}
 
-	if (!CameraManager.FindStartupGameplayCamera())
-	{
-		CameraManager.CreateFallbackGameplayCamera();
-	}
+	CameraManager.FindStartupGameplayCamera();
 
 	if (World)
 	{

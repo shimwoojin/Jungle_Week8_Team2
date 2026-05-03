@@ -184,7 +184,7 @@ bool UControllerInputComponent::ApplyMovementInput(APlayerController* Controller
 	FVector WorldDirection = MoveForward * LocalInput.X + MoveRight * LocalInput.Y + FVector::UpVector * LocalInput.Z;
 	WorldDirection = !WorldDirection.IsNearlyZero() ? WorldDirection.Normalized() : FVector::ZeroVector;
 	return Controller
-		? Controller->AddMovementInput(WorldDirection, MoveSpeed * SpeedBoost * SafeDeltaTime)
+		? Controller->AddMovementInput(WorldDirection, MoveSpeed * SpeedBoost * SafeDeltaTime, SafeDeltaTime)
 		: false;
 }
 

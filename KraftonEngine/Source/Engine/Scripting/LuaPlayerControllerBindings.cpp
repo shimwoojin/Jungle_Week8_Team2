@@ -391,24 +391,6 @@ void RegisterPlayerControllerBinding(sol::state& Lua)
 			return sol::make_object(LuaView, Handle);
 		},
 
-		"GetViewTarget",
-		[](const FLuaPlayerControllerHandle& Self, sol::this_state State) -> sol::object
-		{
-			sol::state_view LuaView(State);
-
-			APlayerController* Controller = Self.Resolve();
-			AActor* Actor = Controller ? Controller->GetViewTarget() : nullptr;
-
-			if (!Actor)
-			{
-				return sol::nil;
-			}
-
-			FLuaGameObjectHandle Handle;
-			Handle.UUID = Actor->GetUUID();
-			return sol::make_object(LuaView, Handle);
-		},
-
 		"GetControllerInput",
 		[](const FLuaPlayerControllerHandle& Self, sol::this_state State) -> sol::object
 		{
@@ -444,56 +426,6 @@ void RegisterPlayerControllerBinding(sol::state& Lua)
 				FLuaControllerInputComponentHandle Handle;
 				Handle.UUID = Input->GetUUID();
 				return sol::make_object(LuaView, Handle);
-			}
-		),
-
-		"SetViewTarget",
-		sol::overload(
-			[](const FLuaPlayerControllerHandle& Self, const FLuaPawnHandle& PawnHandle)
-			{
-				APlayerController* Controller = Self.Resolve();
-
-				if (!Controller)
-				{
-					UE_LOG("[Lua] Invalid PlayerController.SetViewTarget(Pawn) Call.");
-					return;
-				}
-
-				Controller->SetViewTarget(PawnHandle.Resolve());
-			},
-			[](const FLuaPlayerControllerHandle& Self, const FLuaGameObjectHandle& ActorHandle)
-			{
-				APlayerController* Controller = Self.Resolve();
-
-				if (!Controller)
-				{
-					UE_LOG("[Lua] Invalid PlayerController.SetViewTarget(Actor) Call.");
-					return;
-				}
-
-				Controller->SetViewTarget(ActorHandle.Resolve());
-			}
-		),
-
-		"SetViewTargetWithBlend",
-		sol::overload(
-			[](const FLuaPlayerControllerHandle& Self, const FLuaPawnHandle& PawnHandle, float BlendTime)
-			{
-				if (APlayerController* Controller = Self.Resolve())
-				{
-					FCameraBlendParams Params;
-					Params.BlendTime = BlendTime;
-					Controller->SetViewTargetWithBlend(PawnHandle.Resolve(), Params);
-				}
-			},
-			[](const FLuaPlayerControllerHandle& Self, const FLuaGameObjectHandle& ActorHandle, float BlendTime)
-			{
-				if (APlayerController* Controller = Self.Resolve())
-				{
-					FCameraBlendParams Params;
-					Params.BlendTime = BlendTime;
-					Controller->SetViewTargetWithBlend(ActorHandle.Resolve(), Params);
-				}
 			}
 		),
 
