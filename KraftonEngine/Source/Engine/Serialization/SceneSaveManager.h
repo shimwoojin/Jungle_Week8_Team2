@@ -2,6 +2,7 @@
 
 #include <string>
 #include <filesystem>
+#include <unordered_map>
 #include "Core/CoreTypes.h"
 #include "Platform/Paths.h"
 #include "GameFramework/WorldContext.h"
@@ -18,6 +19,12 @@ namespace json
 {
 	class JSON;
 }
+
+struct FActorDeserializeOptions
+{
+	bool bAddToWorld = true;
+	bool bInitDefaultComponentsIfMissing = true;
+};
 
 #include "Core/PropertyTypes.h"
 
@@ -50,13 +57,24 @@ public:
 
 	static TArray<FString> GetSceneFileList();
 
+	// ---- Actor/Component Serialization for Prefabs ----
+	static json::JSON SerializeActor(AActor* Actor);
+	static AActor* DeserializeActor(UWorld* World, json::JSON& ActorJSON, std::unordered_map<string, AActor*>* CreatedFromPrimitives = nullptr, const FActorDeserializeOptions& Options = FActorDeserializeOptions());
+	static bool ApplyPrefabDataToActor(AActor* Actor, json::JSON& ActorJSON);
+	
+	static json::JSON SerializeSceneComponentTree(USceneComponent* Comp);
+	static USceneComponent* DeserializeSceneComponentTree(json::JSON& Node, AActor* Owner);
+	static void DeserializeSceneComponentIntoExisting(USceneComponent* Existing, json::JSON& Node, AActor* Owner);
+
+	static json::JSON SerializeProperties(UActorComponent* Comp);
+	static void DeserializeProperties(UActorComponent* Comp, json::JSON& PropsJSON);
+
+	static json::JSON SerializePropertyValue(const FPropertyDescriptor& Prop);
+	static void DeserializePropertyValue(FPropertyDescriptor& Prop, json::JSON& Value);
+
 private:
 	// ---- Serialization ----
 	static json::JSON SerializeWorld(UWorld* World, const FWorldContext& Ctx, UCameraComponent* PerspectiveCam);
-	static json::JSON SerializeActor(AActor* Actor);
-	static json::JSON SerializeSceneComponentTree(USceneComponent* Comp);
-	static json::JSON SerializeProperties(UActorComponent* Comp);
-	static json::JSON SerializePropertyValue(const FPropertyDescriptor& Prop);
 
 	// ---- Camera ----
 	static json::JSON SerializeCamera(UCameraComponent* Cam);
@@ -64,12 +82,6 @@ private:
 
 	// ---- Primitives ----
 	static void DeserializePrimitives(json::JSON& Primitives, UWorld* World, std::unordered_map<string, AActor*>& OutCreatedActors);
-
-	// ---- Deserialization helpers ----
-	static void DeserializeSceneComponentIntoExisting(USceneComponent* Existing, json::JSON& Node, AActor* Owner);
-	static USceneComponent* DeserializeSceneComponentTree(json::JSON& Node, AActor* Owner);
-	static void DeserializeProperties(UActorComponent* Comp, json::JSON& PropsJSON);
-	static void DeserializePropertyValue(FPropertyDescriptor& Prop, json::JSON& Value);
 
 	static string GetCurrentTimeStamp();
 };

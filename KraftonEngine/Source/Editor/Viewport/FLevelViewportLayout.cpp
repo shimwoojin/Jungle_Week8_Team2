@@ -30,6 +30,7 @@
 #include "Component/CameraComponent.h"
 #include "Component/GizmoComponent.h"
 #include "Component/Light/LightComponentBase.h"
+#include "Serialization/PrefabSaveManager.h"
 
 #include "GameFramework/StaticMeshActor.h"
 
@@ -1015,6 +1016,32 @@ void FLevelViewportLayout::RenderViewportUI(float DeltaTime)
 				AStaticMeshActor* NewActor = Cast<AStaticMeshActor>(FObjectFactory::Get().Create(AStaticMeshActor::StaticClass()->GetName(), Editor->GetWorld()));
 				NewActor->InitDefaultComponents(FPaths::ToUtf8(ContentItem.Path));
 				Editor->GetWorld()->AddActor(NewActor);
+				
+				FVector SpawnLocation(0, 0, 0);
+				FPoint MP = { ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y };
+				if (TryComputePlacementLocation(GetActiveViewportSlotIndex(), MP, SpawnLocation))
+				{
+					NewActor->SetActorLocation(SpawnLocation);
+				}
+				if (SelectionManager)
+				{
+					SelectionManager->Select(NewActor);
+				}
+			}
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PrefabContentItem"))
+			{
+				FContentItem ContentItem = *reinterpret_cast<const FContentItem*>(payload->Data);
+				FString PrefabName = FPaths::ToUtf8(ContentItem.Path.stem().wstring());
+				
+				FVector SpawnLocation(0, 0, 0);
+				FPoint MP = { ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y };
+				TryComputePlacementLocation(GetActiveViewportSlotIndex(), MP, SpawnLocation);
+
+				AActor* SpawnedActor = FPrefabSaveManager::SpawnPrefab(Editor->GetWorld(), PrefabName, SpawnLocation);
+				if (SpawnedActor && SelectionManager)
+				{
+					SelectionManager->Select(SpawnedActor);
+				}
 			}
 			ImGui::EndDragDropTarget();
 		}

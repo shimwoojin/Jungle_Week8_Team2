@@ -2,7 +2,9 @@
 
 #include "Editor/EditorEngine.h"
 #include "Editor/UI/EditorFileUtils.h"
+#include "Serialization/PrefabSaveManager.h"
 
+#include <filesystem>
 #include "ImGui/imgui.h"
 #include "Component/ActorComponent.h"
 #include "Component/ControllerInputComponent.h"
@@ -320,6 +322,35 @@ void FEditorPropertyWidget::Render(float DeltaTime)
 			LastSelectedActor = nullptr;
 			ImGui::End();
 			return;
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("Save Prefab"))
+		{
+			std::wstring PrefabDir = FPaths::PrefabDir();
+			FPaths::CreateDir(PrefabDir);
+
+			FString DefaultName = PrimaryActor->GetFName().ToString();
+			if (DefaultName.empty()) DefaultName = PrimaryActor->GetClass()->GetName();
+
+			std::wstring WideDefaultName = FPaths::ToWide(DefaultName);
+
+			FEditorFileDialogOptions Options;
+			Options.Title = L"Save Prefab As...";
+			Options.Filter = L"Prefab Files (*.Prefab)\0*.Prefab\0All Files (*.*)\0*.*\0";
+			Options.DefaultExtension = L"Prefab";
+			Options.InitialDirectory = PrefabDir.c_str();
+			Options.DefaultFileName = WideDefaultName.c_str();
+			Options.bPromptOverwrite = true;
+			Options.bReturnRelativeToProjectRoot = false;
+
+			FString SavePath = FEditorFileUtils::SaveFileDialog(Options);
+			if (!SavePath.empty())
+			{
+				std::filesystem::path Path = std::filesystem::path(FPaths::ToWide(SavePath));
+				FString PrefabName = FPaths::ToUtf8(Path.stem().wstring());
+				FPrefabSaveManager::SaveActorAsPrefab(PrimaryActor, PrefabName);
+			}
 		}
 	}
 
