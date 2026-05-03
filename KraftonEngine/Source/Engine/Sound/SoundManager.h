@@ -1,17 +1,35 @@
 ﻿#pragma once
 #include "Core/CoreTypes.h"
+#include "Platform/Paths.h"
 #include "ThirdParty/SFML/Audio.hpp"
+
+
+enum class SoundEffect : uint32
+{
+	Jump, 
+	Parry,
+	Death
+};
+
 
 class SoundManager
 {
 public:
 	// sound file mapping 
-	void init();
+	void initialize();
+
+	void PlayBGM();
+	void StopBGM();
+
+
+	void LoadEffect(SoundEffect ID, const std::wstring& FilePath);
+	void PlayEffect(SoundEffect ID);
 
 private:
 
-	TMap<FString, sf::SoundBuffer> SoundResourceMap;
-
+	TMap<SoundEffect, sf::SoundBuffer> SoundBufferMap;
+	TMap < SoundEffect, sf::Sound> Sounds;
+	sf::Music m_bgm; 
 
 
 };
