@@ -19,6 +19,8 @@ public:
 
 	UCameraComponent* GetActiveCamera() const;
 	UCameraComponent* GetOutputCamera() const { return OutputCameraComponent; }
+	bool HasValidOutputCamera() const;
+	UCameraComponent* GetOutputCameraIfValid() const;
 
 	void UpdateCamera(float DeltaTime);
 	void SnapToActiveCamera();

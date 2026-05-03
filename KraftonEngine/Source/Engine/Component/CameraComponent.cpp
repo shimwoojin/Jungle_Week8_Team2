@@ -4,6 +4,7 @@
 #include "Component/Movement/MovementComponent.h"
 #include "GameFramework/AActor.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/Pawn.h"
 #include "GameFramework/World.h"
 #include "Object/ObjectFactory.h"
 #include "Serialization/Archive.h"
@@ -278,6 +279,10 @@ void UCameraComponent::SetActiveCamera()
 	{
 		if (APlayerController* Controller = World->FindOrCreatePlayerController())
 		{
+			if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+			{
+				Controller->Possess(OwnerPawn);
+			}
 			Controller->SetActiveCamera(this);
 		}
 	}
@@ -289,6 +294,10 @@ void UCameraComponent::SetActiveCameraWithBlend()
 	{
 		if (APlayerController* Controller = World->FindOrCreatePlayerController())
 		{
+			if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+			{
+				Controller->Possess(OwnerPawn);
+			}
 			Controller->SetActiveCameraWithBlend(this);
 		}
 	}
@@ -318,6 +327,8 @@ AActor* UCameraComponent::ResolveTargetActor() const
 void UCameraComponent::ClearTargetActor()
 {
 	TargetActorUUID = 0;
+	bUseOwnerAsTarget = true;
+	ResetRuntimeCameraState();
 }
 
 void UCameraComponent::ClearTargetActorIfMatches(const AActor* Actor)
@@ -486,9 +497,21 @@ void UCameraComponent::PostEditProperty(const char* PropertyName)
 	USceneComponent::PostEditProperty(PropertyName);
 	NormalizeOptions();
 
-	if (std::strcmp(PropertyName, "View Mode") == 0 ||
-		std::strcmp(PropertyName, "Target Actor") == 0 ||
-		std::strcmp(PropertyName, "Use Owner As Target") == 0)
+	if (std::strcmp(PropertyName, "Target Actor") == 0)
+	{
+		bUseOwnerAsTarget = (TargetActorUUID == 0);
+		ResetRuntimeCameraState();
+	}
+	else if (std::strcmp(PropertyName, "Use Owner As Target") == 0)
+	{
+		if (bUseOwnerAsTarget)
+		{
+			TargetActorUUID = 0;
+		}
+		ResetRuntimeCameraState();
+	}
+	else if (std::strcmp(PropertyName, "View Mode") == 0 ||
+		std::strcmp(PropertyName, "Orthographic") == 0)
 	{
 		ResetRuntimeCameraState();
 	}
@@ -568,7 +591,7 @@ bool UCameraComponent::CalcThirdPersonView(APlayerController* Controller, float 
 	}
 
 	FVector FocusPoint = ComputeTargetFocusPoint(Target, DeltaTime);
-	FocusPoint += ComputeLookAheadWorld(Controller);
+	FocusPoint += ComputeLookAheadWorld(Controller, DeltaTime);
 
 	FVector Forward = Target->GetActorForward();
 	FVector Right = FVector::Cross(FVector::UpVector, Forward);
@@ -610,7 +633,7 @@ bool UCameraComponent::CalcOrthographicFollowView(APlayerController* Controller,
 	}
 
 	FVector FocusPoint = ComputeTargetFocusPoint(Target, DeltaTime);
-	FocusPoint += ComputeLookAheadWorld(Controller);
+	FocusPoint += ComputeLookAheadWorld(Controller, DeltaTime);
 
 	FVector DesiredFocus = FocusPoint;
 	if (bStabilizeVerticalInOrthographic)
@@ -654,28 +677,28 @@ FVector UCameraComponent::ComputeTargetFocusPoint(AActor* Target, float DeltaTim
 	return Target->GetActorLocation() + TargetOffset;
 }
 
-FVector UCameraComponent::ComputeLookAheadWorld(APlayerController* Controller) const
+FVector UCameraComponent::ComputeLookAheadWorld(APlayerController* Controller, float DeltaTime)
 {
-	if (!bEnableLookAhead || !Controller)
+	FVector Desired = FVector::ZeroVector;
+
+	if (bEnableLookAhead && Controller)
 	{
-		return FVector::ZeroVector;
+		AActor* Target = Controller->GetPossessedActor();
+		UMovementComponent* Movement = FindBestMovementComponent(Target);
+		if (Movement && Movement->HasMovementInput())
+		{
+			FVector Direction = Movement->GetLastMovementInput();
+			Direction.Z = 0.0f;
+			if (!Direction.IsNearlyZero())
+			{
+				Desired = Direction.Normalized() * LookAheadDistance;
+			}
+		}
 	}
 
-	AActor* Target = Controller->GetPossessedActor();
-	UMovementComponent* Movement = FindBestMovementComponent(Target);
-	if (!Movement || !Movement->HasMovementInput())
-	{
-		return FVector::ZeroVector;
-	}
-
-	FVector Direction = Movement->GetLastMovementInput();
-	Direction.Z = 0.0f;
-	if (Direction.IsNearlyZero())
-	{
-		return FVector::ZeroVector;
-	}
-
-	return Direction.Normalized() * LookAheadDistance;
+	const float Alpha = ExpAlpha(LookAheadLagSpeed, DeltaTime);
+	SmoothedLookAheadWorld = SmoothedLookAheadWorld + (Desired - SmoothedLookAheadWorld) * Alpha;
+	return SmoothedLookAheadWorld;
 }
 
 FQuat UCameraComponent::MakeLookAtRotationQuat(const FVector& Location, const FVector& Target) const

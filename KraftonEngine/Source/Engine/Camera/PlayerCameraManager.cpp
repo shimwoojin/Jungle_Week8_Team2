@@ -94,6 +94,8 @@ void FPlayerCameraManager::ClearActiveCamera()
 	PendingCameraRef.Reset();
 	ActiveCameraCached = nullptr;
 	PendingCameraCached = nullptr;
+	CurrentView = FCameraView();
+	BlendFromView = FCameraView();
 	bIsBlending = false;
 	BlendElapsedTime = 0.0f;
 }
@@ -105,6 +107,19 @@ UCameraComponent* FPlayerCameraManager::GetActiveCamera() const
 		return ActiveCameraCached;
 	}
 	return ResolveCameraReference(ActiveCameraRef);
+}
+
+bool FPlayerCameraManager::HasValidOutputCamera() const
+{
+	return OutputCameraComponent
+		&& IsAliveObject(OutputCameraComponent)
+		&& CurrentView.bValid
+		&& (ActiveCameraRef.IsSet() || PendingCameraRef.IsSet());
+}
+
+UCameraComponent* FPlayerCameraManager::GetOutputCameraIfValid() const
+{
+	return HasValidOutputCamera() ? OutputCameraComponent : nullptr;
 }
 
 void FPlayerCameraManager::UpdateCamera(float DeltaTime)
@@ -121,8 +136,22 @@ void FPlayerCameraManager::UpdateCamera(float DeltaTime)
 
 	if (!TargetCamera)
 	{
-		ClearActiveCamera();
-		return;
+		if (bIsBlending)
+		{
+			PendingCameraRef.Reset();
+			PendingCameraCached = nullptr;
+			bIsBlending = false;
+			BlendElapsedTime = 0.0f;
+			TargetCamera = ActiveCameraCached && IsAliveObject(ActiveCameraCached)
+				? ActiveCameraCached
+				: ResolveCameraReference(ActiveCameraRef);
+		}
+
+		if (!TargetCamera)
+		{
+			ClearActiveCamera();
+			return;
+		}
 	}
 
 	FCameraView DesiredView;
@@ -240,6 +269,8 @@ void FPlayerCameraManager::ClearCameraReferencesForActor(const AActor* Actor)
 	{
 		ActiveCameraRef.Reset();
 		ActiveCameraCached = nullptr;
+		CurrentView = FCameraView();
+		BlendFromView = FCameraView();
 	}
 	if (PendingCameraRef.OwnerActorUUID == ActorUUID)
 	{
@@ -261,12 +292,22 @@ void FPlayerCameraManager::ClearCameraReferencesForComponent(const UActorCompone
 		return;
 	}
 
-	if (ActiveCameraCached == Camera)
+	const FCameraComponentReference RemovedRef = MakeCameraReference(const_cast<UCameraComponent*>(Camera));
+	const bool bMatchesActiveRef = RemovedRef.IsSet()
+		&& ActiveCameraRef.OwnerActorUUID == RemovedRef.OwnerActorUUID
+		&& ActiveCameraRef.ComponentPath == RemovedRef.ComponentPath;
+	const bool bMatchesPendingRef = RemovedRef.IsSet()
+		&& PendingCameraRef.OwnerActorUUID == RemovedRef.OwnerActorUUID
+		&& PendingCameraRef.ComponentPath == RemovedRef.ComponentPath;
+
+	if (ActiveCameraCached == Camera || bMatchesActiveRef)
 	{
 		ActiveCameraRef.Reset();
 		ActiveCameraCached = nullptr;
+		CurrentView = FCameraView();
+		BlendFromView = FCameraView();
 	}
-	if (PendingCameraCached == Camera)
+	if (PendingCameraCached == Camera || bMatchesPendingRef)
 	{
 		PendingCameraRef.Reset();
 		PendingCameraCached = nullptr;
