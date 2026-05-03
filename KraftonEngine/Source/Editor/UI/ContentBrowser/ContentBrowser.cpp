@@ -107,6 +107,12 @@ void FEditorContentBrowserWidget::Render(float DeltaTime)
 		return;
 	}
 
+	if (BrowserContext.bIsNeedRefresh)
+	{
+		RefreshContent();
+		BrowserContext.bIsNeedRefresh = false;
+	}
+
 	//if (ImGui::Button("Refresh") || BrowserContext.bIsNeedRefresh)
 	//	Refresh();
 
