@@ -30,7 +30,7 @@
             "Path" : "Asset/Materials/Auto/Material.mat"
           },
           "Generate Overlap Events" : true,
-          "Location" : [0.000000, 0.000000, -1.500000],
+          "Location" : [0.000000, 5.000000, -1.500000],
           "Rotation" : [0.000000, 0.000000, 0.000000],
           "Scale" : [30.000000, 30.000000, 1.000000],
           "Static Mesh" : "Data/GouraudCube/GouraudCube.obj",
@@ -136,7 +136,7 @@
           "Color" : [1.000000, 1.000000, 1.000000, 1.000000],
           "Intensity" : 1.000000,
           "Location" : [-1.694910, 2.075576, 2.000000],
-          "Rotation" : [44.776340, -50.970623, 138.220215],
+          "Rotation" : [44.776337, -50.970627, 138.220215],
           "Scale" : [1.000000, 1.000000, 1.000000],
           "Shadow Bias" : 0.000100,
           "Shadow Normal Bias" : -0.002000,
@@ -1061,7 +1061,7 @@
                   "Material" : {
                     "Path" : "Asset/Materials/Editor/SpotLight.mat"
                   },
-                  "Rotation" : [-0.000000, 0.000000, 0.000000],
+                  "Rotation" : [0.000000, 0.000000, 0.000000],
                   "Scale" : [1.000000, 1.000000, 1.000000],
                   "Two Sided Shadow" : false,
                   "Visible" : true,
@@ -1124,9 +1124,109 @@
           },
           "Generate Overlap Events" : true,
           "Location" : [-2.247747, -1.993313, -0.500000],
-          "Rotation" : [-0.000000, 0.000000, 0.000000],
+          "Rotation" : [0.000000, 0.000000, 0.000000],
           "Scale" : [1.000000, 1.000000, 1.000000],
           "Static Mesh" : "Data/Lamp/streelamp.obj",
+          "Two Sided Shadow" : false,
+          "Visible" : true,
+          "bEditorOnly" : false,
+          "bTickEnable" : true
+        }
+      },
+      "bVisible" : true
+    }, {
+      "ActorUUID" : 261,
+      "ClassName" : "AActor",
+      "NonSceneComponents" : [],
+      "RootComponent" : {
+        "Children" : [],
+        "ClassName" : "UStaticMeshComponent",
+        "Properties" : {
+          "Blocks Movement" : true,
+          "Cast Shadow" : true,
+          "Element 0" : {
+            "Path" : "Asset/Materials/Auto/Grass_Block.mat"
+          },
+          "Generate Overlap Events" : true,
+          "Location" : [0.000000, 4.000000, 1.000000],
+          "Rotation" : [-0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Static Mesh" : "Data/Floor/grass.obj",
+          "Two Sided Shadow" : false,
+          "Visible" : true,
+          "bEditorOnly" : false,
+          "bTickEnable" : true
+        }
+      },
+      "bVisible" : true
+    }, {
+      "ActorUUID" : 266,
+      "ClassName" : "AActor",
+      "NonSceneComponents" : [],
+      "RootComponent" : {
+        "Children" : [],
+        "ClassName" : "UStaticMeshComponent",
+        "Properties" : {
+          "Blocks Movement" : true,
+          "Cast Shadow" : true,
+          "Element 0" : {
+            "Path" : "Asset/Materials/Auto/isl_Expo.mat"
+          },
+          "Generate Overlap Events" : true,
+          "Location" : [1.000000, 4.000000, 1.000000],
+          "Rotation" : [-0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Static Mesh" : "Data/Floor/Road.obj",
+          "Two Sided Shadow" : false,
+          "Visible" : true,
+          "bEditorOnly" : false,
+          "bTickEnable" : true
+        }
+      },
+      "bVisible" : true
+    }, {
+      "ActorUUID" : 271,
+      "ClassName" : "AActor",
+      "NonSceneComponents" : [],
+      "RootComponent" : {
+        "Children" : [],
+        "ClassName" : "UStaticMeshComponent",
+        "Properties" : {
+          "Blocks Movement" : true,
+          "Cast Shadow" : true,
+          "Element 0" : {
+            "Path" : "Asset/Materials/Auto/Grass_Block.mat"
+          },
+          "Generate Overlap Events" : true,
+          "Location" : [0.000000, 5.000000, 1.000000],
+          "Rotation" : [-0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Static Mesh" : "Data/Floor/grass.obj",
+          "Two Sided Shadow" : false,
+          "Visible" : true,
+          "bEditorOnly" : false,
+          "bTickEnable" : true
+        }
+      },
+      "bVisible" : true
+    }, {
+      "ActorUUID" : 273,
+      "ClassName" : "AActor",
+      "NonSceneComponents" : [],
+      "RootComponent" : {
+        "Children" : [],
+        "ClassName" : "UStaticMeshComponent",
+        "Properties" : {
+          "Blocks Movement" : true,
+          "Cast Shadow" : true,
+          "Element 0" : {
+            "Path" : "Asset/Materials/Auto/isl_Expo.mat"
+          },
+          "Generate Overlap Events" : true,
+          "Location" : [1.000000, 5.000000, 1.000000],
+          "Rotation" : [-0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Static Mesh" : "Data/Floor/Road.obj",
           "Two Sided Shadow" : false,
           "Visible" : true,
           "bEditorOnly" : false,
@@ -1140,18 +1240,18 @@
   "ContextName" : "Default",
   "Name" : "Default",
   "PerspectiveCamera" : {
-    "AspectRatio" : 1.643950,
+    "AspectRatio" : 1.847861,
     "FOV" : 1.047198,
     "FarClip" : 1000.000000,
-    "Location" : [-12.218767, 0.757021, 8.735987],
+    "Location" : [-16.378567, 1.431615, 14.960399],
     "NearClip" : 0.100000,
     "OrthoWidth" : 10.000000,
     "Orthographic" : false,
-    "Rotation" : [0.000000, 29.328135, -1.100357]
+    "Rotation" : [0.000000, 35.777393, 1.148218]
   },
   "Primitives" : {
     "102" : {
-      "Location" : [0.000000, 0.000000, -1.500000],
+      "Location" : [0.000000, 5.000000, -1.500000],
       "ObjStaticMeshAsset" : "Data/GouraudCube/GouraudCube.obj",
       "Rotation" : [0.000000, -0.000000, 0.000000],
       "Scale" : [30.000000, 30.000000, 1.000000],
