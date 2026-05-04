@@ -4,6 +4,12 @@ local BIOME = {
     RAILWAY = 2
 }
 
+local BIOME_NAME = {
+    [0] = "GRASS",
+    [1] = "ROAD",
+    [2] = "RAILWAY"
+}
+
 local PREFABS = {
     TREE1 = "Asset/Prefab/VoxelTreeA.Prefab",
     TREE2 = "Asset/Prefab/VoxelTreeB.Prefab",
@@ -14,13 +20,12 @@ local PREFABS = {
 
 local MapConfig = {
     SlotCount = 9,
-    SlotSize = 100.0,
-    RowDepth = 100.0,
-    MaxSlotIndex = SlotCount - 1
+    SlotSize = 1.0,
+    RowDepth = 1.0
 }
+MapConfig.MaxSlotIndex = MapConfig.SlotCount - 1
 
-local LastSafeSlot = 4
-local CurrentBiomeState = BIOME.GRASS
+local LastSafeSlot = math.floor(MapConfig.SlotCount / 2)
 
 -- 2. 가중치 테이블 설정
 -- 지형의 가중치
@@ -81,6 +86,7 @@ function RowGenerator.GenerateRow(rowIndex)
     local biome = ChooseWeighted(BiomeWeights)
     local biomeType = biome.type
     SetRowBiome(rowIndex, biomeType)
+    print("Biome : " .. (BIOME_NAME[biomeType] or tostring(biomeType)))     
 
     -- 2. 안전한 경로 계산 (-1 ~ 1 슬롯 이동)
     local nextSafeSlot = LastSafeSlot + math.random(-1, 1)
@@ -103,40 +109,43 @@ function RowGenerator.GenerateRow(rowIndex)
 
 -- (GenerateRow 함수 내부의 ROAD 처리 부분)
     elseif biomeType == BIOME.ROAD then
-        local dirX = (math.random(0, 1) == 0) and -1 or 1
+        -- UE 축에 맞춰 좌우 이동 방향을 Y축으로 명명 (1: 오른쪽, -1: 왼쪽)
+        local dirY = (math.random(0, 1) == 0) and -1 or 1
         
         -- 1. 이 차선에 등장할 차량 종류를 확률로 결정
-        local selectedVehicle = RowGenerator.ChooseVehicle()
+        local selectedVehicle = ChooseWeighted(VehicleWeights)
         
         local speed = 0
         local interval = 0
 
         -- 2. 뽑힌 차량의 종류에 따라 속도와 스폰 주기를 다르게 세팅
-        if selectedVehicle == PREFABS.CAR then
+        if selectedVehicle.type == PREFABS.CAR then
             -- 승용차: 표준 속도, 표준 간격
             speed = 5.0 + (rowIndex * 0.1)
             interval = math.max(1.0, 3.0 - (rowIndex * 0.05))
 
-        elseif selectedVehicle == PREFABS.TRUCK then
+        elseif selectedVehicle.type == PREFABS.TRUCK then
             -- 트럭: 느린 속도, 넓은 간격 (길막 주의)
             speed = 3.5 + (rowIndex * 0.08)
             interval = math.max(2.0, 5.0 - (rowIndex * 0.03))
 
-        elseif selectedVehicle == PREFABS.SPORTS_CAR then
+        elseif selectedVehicle.type == PREFABS.SPORTS_CAR then
             -- 스포츠카: 매우 빠른 속도, 짧은 간격 (위협적)
             speed = 10.0 + (rowIndex * 0.15)
             interval = math.max(0.5, 2.0 - (rowIndex * 0.05))
         end
 
         -- 3. 결정된 데이터로 해당 Row에 스포너 등록
-        SetDynamicSpawner(rowIndex, selectedVehicle, speed, interval, dirX)
+        SetDynamicSpawner(rowIndex, selectedVehicle.type, speed, interval, dirY)
 
     elseif biomeType == BIOME.RAILWAY then
         -- 기차는 매우 빠르고 간격이 긺
         local speed = 20.0 + (rowIndex * 0.2)
         local interval = math.max(3.0, 6.0 - (rowIndex * 0.02))
-        local dirX = (math.random(0, 1) == 0) and -1 or 1
+        local dirY = (math.random(0, 1) == 0) and -1 or 1
 
-        SetDynamicSpawner(rowIndex, PREFABS.TRAIN, speed, interval, dirX)
+        SetDynamicSpawner(rowIndex, PREFABS.TRAIN, speed, interval, dirY)
     end
 end
+
+return RowGenerator

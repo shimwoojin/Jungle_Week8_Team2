@@ -53,15 +53,15 @@ void FRowManager::Tick(float DeltaTime)
 					Spawner.SpawnTimer = Spawner.SpawnInterval;
 
 					// 3. 스폰 위치 계산 (화면 밖에서 등장하도록 설정)
-					const float OffsetX = (static_cast<float>(Config.SlotCount) - 1.0f) * 0.5f;
+					const float OffsetY = (static_cast<float>(Config.SlotCount) - 1.0f) * 0.5f;
 					// 가장자리 슬롯의 X 좌표
-					const float ExtentX = OffsetX * Config.SlotSize;
+					const float ExtentY = OffsetY * Config.SlotSize;
 
 					// DirectionX가 1(오른쪽)이면 왼쪽 끝 화면 밖에서, -1(왼쪽)이면 오른쪽 끝 화면 밖에서 스폰
-					const float SpawnX = (Spawner.DirectionX > 0) ? -ExtentX - Config.SlotSize : ExtentX + Config.SlotSize;
-					const float WorldZ = static_cast<float>(Row.RowIndex) * Config.RowDepth;
+					const float SpawnY = (Spawner.DirectionX > 0) ? -ExtentY - Config.SlotSize : ExtentY + Config.SlotSize;
+					const float WorldX = static_cast<float>(Row.RowIndex) * Config.RowDepth;
 
-					const FVector SpawnLocation(SpawnX, 0.0f, WorldZ);
+					const FVector SpawnLocation(WorldX, SpawnY, 0.0f);
 
 					// 4. 이동 방향에 맞춰서 차량이 앞을 보도록 회전 (엔진의 기본 Forward 방향에 따라 Yaw 값은 조정이 필요할 수 있어)
 					FRotator SpawnRotation = FRotator();
@@ -82,7 +82,7 @@ void FRowManager::Tick(float DeltaTime)
 							if (UProjectileMovementComponent* ProjComp = Cast<UProjectileMovementComponent>(Comp))
 							{
 								// 직접 접근 대신 SetVelocity() 함수를 사용하도록 수정
-								ProjComp->SetVelocity(FVector(static_cast<float>(Spawner.DirectionX), 0.0f, 0.0f) * Spawner.Speed);
+								ProjComp->SetVelocity(FVector(0.0f, static_cast<float>(Spawner.DirectionX), 0.0f) * Spawner.Speed);
 								break;
 							}
 						}
@@ -151,11 +151,11 @@ void FRowManager::SpawnStaticObstacle(int32 RowIndex, int32 SlotIndex, const FSt
     Obstacle.SlotIndex = SlotIndex;
     Obstacle.PrefabPath = PrefabPath;
 
-    const float OffsetX = (static_cast<float>(Config.SlotCount) - 1.0f) * 0.5f;
-    const float WorldX = (static_cast<float>(SlotIndex) - OffsetX) * Config.SlotSize;
-    const float WorldZ = static_cast<float>(RowIndex) * Config.RowDepth;
+	const float OffsetY = (static_cast<float>(Config.SlotCount) - 1.0f) * 0.5f;
+	const float WorldY = (static_cast<float>(SlotIndex) - OffsetY) * Config.SlotSize;
+	const float WorldX = static_cast<float>(RowIndex) * Config.RowDepth;
 
-    const FVector SpawnLocation(WorldX, 0.0f, WorldZ);
+	const FVector SpawnLocation(WorldX, WorldY, 0.0f);
     const FRotator SpawnRotation = FRotator();
 
     UWorld* World = FLuaWorldLibrary::GetActiveWorld();
