@@ -5,7 +5,23 @@
       "NonSceneComponents" : [],
       "PrimitiveKey" : "102",
       "RootComponent" : {
-        "Children" : [],
+        "Children" : [{
+            "Children" : [],
+            "ClassName" : "UBoxComponent",
+            "Properties" : {
+              "Blocks Movement" : true,
+              "Box Extent" : [0.500000, 0.500000, 0.500000],
+              "Cast Shadow" : true,
+              "Generate Overlap Events" : true,
+              "Location" : [0.000000, 0.000000, 0.000000],
+              "Rotation" : [-0.000000, 0.000000, 0.000000],
+              "Scale" : [1.000000, 1.000000, 1.000000],
+              "Two Sided Shadow" : false,
+              "Visible" : true,
+              "bEditorOnly" : false,
+              "bTickEnable" : true
+            }
+          }],
         "ClassName" : "UStaticMeshComponent",
         "Properties" : {
           "Blocks Movement" : true,
@@ -1276,20 +1292,61 @@
         }
       },
       "bVisible" : true
+    }, {
+      "ActorUUID" : 349,
+      "ClassName" : "AActor",
+      "NonSceneComponents" : [],
+      "RootComponent" : {
+        "Children" : [{
+            "Children" : [],
+            "ClassName" : "UBoxComponent",
+            "Properties" : {
+              "Blocks Movement" : true,
+              "Box Extent" : [0.500000, 0.500000, 0.500000],
+              "Cast Shadow" : true,
+              "Generate Overlap Events" : true,
+              "Location" : [0.000967, 0.000000, 1.002765],
+              "Rotation" : [0.000000, 0.000000, 0.000000],
+              "Scale" : [1.823446, 1.829153, 1.975432],
+              "Two Sided Shadow" : false,
+              "Visible" : true,
+              "bEditorOnly" : false,
+              "bTickEnable" : true
+            }
+          }],
+        "ClassName" : "UStaticMeshComponent",
+        "Properties" : {
+          "Blocks Movement" : true,
+          "Cast Shadow" : true,
+          "Element 0" : {
+            "Path" : "Asset/Materials/Auto/pubgBox.mat"
+          },
+          "Generate Overlap Events" : true,
+          "Location" : [7.024499, 2.211036, -0.500002],
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [0.500000, 0.500000, 0.500000],
+          "Static Mesh" : "Data/PUBGBox/PUBGBox.obj",
+          "Two Sided Shadow" : false,
+          "Visible" : true,
+          "bEditorOnly" : false,
+          "bTickEnable" : true
+        }
+      },
+      "bVisible" : true
     }],
   "ClassName" : "UWorld",
   "ContextHandle" : "Default",
   "ContextName" : "Default",
   "Name" : "Default",
   "PerspectiveCamera" : {
-    "AspectRatio" : 1.642559,
+    "AspectRatio" : 1.846276,
     "FOV" : 1.047198,
     "FarClip" : 1000.000000,
-    "Location" : [-2.648566, 0.221009, -0.210721],
+    "Location" : [-4.898028, 1.599756, 7.393324],
     "NearClip" : 0.100000,
     "OrthoWidth" : 10.000000,
     "Orthographic" : false,
-    "Rotation" : [-0.000000, 8.777945, 14.499489]
+    "Rotation" : [0.000000, 26.778360, 7.749015]
   },
   "Primitives" : {
     "102" : {
