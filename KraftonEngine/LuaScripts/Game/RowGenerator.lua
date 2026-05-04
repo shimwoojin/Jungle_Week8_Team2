@@ -34,7 +34,9 @@ local PREFABS = {
 RowGenerator.MapConfig = {
     SlotCount = 15,
     SlotSize = 2.0,
-    RowDepth = 2.0
+    RowDepth = 2.0,
+    KeepRowsBehind = 10,
+    KeepRowsAhead = 10
 }
 RowGenerator.MapConfig.MaxSlotIndex = RowGenerator.MapConfig.SlotCount - 1
 
@@ -66,7 +68,7 @@ local VehicleWeights = {
 
 function RowGenerator.ConfigureRows()
     SetRowSize(RowGenerator.MapConfig.SlotCount, RowGenerator.MapConfig.SlotSize, RowGenerator.MapConfig.RowDepth)
-    SetRowBufferCounts(10, 10)
+    SetRowBufferCounts(RowGenerator.MapConfig.KeepRowsBehind, RowGenerator.MapConfig.KeepRowsAhead)
 
     if World and World.WarmUpPrefabPool then
         World.WarmUpPrefabPool(PREFABS.GRASSTILE, 100)
@@ -174,8 +176,10 @@ function RowGenerator.GenerateRow(rowIndex)
             interval = math.max(1.0, 3.0 - (rowIndex * 0.05))
         end
 
-        -- 3. 결정된 데이터로 해당 Row에 스포너 등록
-        SetDynamicSpawner(rowIndex, selectedVehicle.type, speed, interval, dirY)
+        -- 3. 결정된 데이터로 해당 Row에 스포너 등록 (Lua 단에서 스케줄링)
+        if _G.AddDynamicSpawner then
+            _G.AddDynamicSpawner(rowIndex, selectedVehicle.type, speed, interval, dirY)
+        end
 
     elseif biomeType == BIOME.RAILWAY then
         -- 기차는 매우 빠르고 간격이 긺
@@ -183,7 +187,9 @@ function RowGenerator.GenerateRow(rowIndex)
         local interval = math.max(3.0, 6.0 - (rowIndex * 0.02))
         local dirY = (math.random(0, 1) == 0) and -1 or 1
 
-        SetDynamicSpawner(rowIndex, PREFABS.TRAIN, speed, interval, dirY)
+        if _G.AddDynamicSpawner then
+            _G.AddDynamicSpawner(rowIndex, PREFABS.TRAIN, speed, interval, dirY)
+        end
     end
 end
 
