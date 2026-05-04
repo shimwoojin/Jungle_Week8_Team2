@@ -19,6 +19,8 @@ public:
 
 	std::wstring GetFileName() { return ContentItem.Path.filename(); }
 
+	void StartRename(ContentBrowserContext& Context);
+
 protected:
 	FString EllipsisText(const FString& text, float maxWidth);
 	virtual const char* GetDragItemType() { return "ParkSangHyeok"; }
@@ -67,4 +69,16 @@ public:
 
 private:
 	FEditorMaterialInspector MaterialInspector;
+};
+
+class PrefabElement final : public ContentBrowserElement
+{
+public:
+	virtual const char* GetDragItemType() override { return "PrefabContentItem"; }
+};
+
+class LuaScriptElement final : public ContentBrowserElement
+{
+public:
+	virtual const char* GetDragItemType() override { return "LuaScriptContentItem"; }
 };

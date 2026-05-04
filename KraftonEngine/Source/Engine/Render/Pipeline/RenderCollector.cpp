@@ -1,6 +1,7 @@
 ﻿#include "RenderCollector.h"
 
 #include "Component/ActorComponent.h"
+#include "Component/Collision/ShapeComponent.h"
 #include "GameFramework/AActor.h"
 #include "Editor/EditorEngine.h"
 #include "Editor/Subsystem/OverlayStatSystem.h"
@@ -114,6 +115,60 @@ void FRenderCollector::CollectOctreeDebug(const FOctree* Node, FScene& Scene, ui
 	for (const FOctree* Child : Node->GetChildren())
 	{
 		CollectOctreeDebug(Child, Scene, Depth + 1);
+	}
+}
+
+void FRenderCollector::CollectPickingBVHDebug(UWorld* World, FScene& Scene)
+{
+	if (!World) return;
+
+	TArray<FWorldPrimitivePickingBVH::FDebugAABB> DebugAABBs;
+	World->CollectWorldPrimitivePickingBVHDebugAABBs(DebugAABBs);
+
+	for (const FWorldPrimitivePickingBVH::FDebugAABB& DebugAABB : DebugAABBs)
+	{
+		Scene.AddDebugAABB(DebugAABB.Min, DebugAABB.Max, DebugAABB.Color);
+	}
+}
+
+void FRenderCollector::CollectCollisionBVHDebug(UWorld* World, FScene& Scene)
+{
+	if (!World) return;
+
+	TArray<FWorldCollisionBVH::FDebugAABB> DebugAABBs;
+	World->CollectWorldCollisionBVHDebugAABBs(DebugAABBs);
+
+	for (const FWorldCollisionBVH::FDebugAABB& DebugAABB : DebugAABBs)
+	{
+		Scene.AddDebugAABB(DebugAABB.Min, DebugAABB.Max, DebugAABB.Color);
+	}
+}
+
+void FRenderCollector::CollectCollisionShapeDebug(UWorld* World, FScene& Scene)
+{
+	if (!World) return;
+
+	for (AActor* Actor : World->GetActors())
+	{
+		if (!Actor || !Actor->IsVisible())
+		{
+			continue;
+		}
+		if (Scene.GetSelectedActors().find(Actor) != Scene.GetSelectedActors().end())
+		{
+			continue;
+		}
+
+		for (UActorComponent* Component : Actor->GetComponents())
+		{
+			const UShapeComponent* Shape = dynamic_cast<const UShapeComponent*>(Component);
+			if (!Shape || !Shape->IsVisible())
+			{
+				continue;
+			}
+
+			Shape->DrawDebugShape(Scene, Shape->GetDebugShapeColor());
+		}
 	}
 }
 

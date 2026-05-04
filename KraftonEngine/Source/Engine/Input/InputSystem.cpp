@@ -1,29 +1,17 @@
-#include "Engine/Input/InputSystem.h"
+﻿#include "Engine/Input/InputSystem.h"
 #include <cmath>
+#include "Core/Log.h"
 
 void InputSystem::Tick()
 {
     // 윈도우 포커스가 없으면 모든 입력 상태 해제
-    if (OwnerHWnd && GetForegroundWindow() != OwnerHWnd)
+    HWND Foreground = GetForegroundWindow();
+    bWindowFocused = !OwnerHWnd || (Foreground == OwnerHWnd) || IsChild(OwnerHWnd, Foreground);
+    if (!bWindowFocused)
     {
-        for (int i = 0; i < 256; ++i)
-        {
-            PrevStates[i] = CurrentStates[i];
-            CurrentStates[i] = false;
-        }
-        bLeftDragJustStarted = false;
-        bRightDragJustStarted = false;
-        bLeftDragJustEnded = bLeftDragging;
-        bRightDragJustEnded = bRightDragging;
-        bLeftDragging = false;
-        bRightDragging = false;
-        bLeftDragCandidate = false;
-        bRightDragCandidate = false;
-        PrevScrollDelta = ScrollDelta;
-        ScrollDelta = 0;
-        // 마우스 위치 동기화 (복귀 시 델타 점프 방지)
-        GetCursorPos(&MousePos);
-        PrevMousePos = MousePos;
+        ResetAllKeyStates();
+        ResetTransientState();
+        UpdateCurrentSnapshot();
         return;
     }
 
@@ -43,6 +31,15 @@ void InputSystem::Tick()
 
     PrevMousePos = MousePos;
     GetCursorPos(&MousePos);
+    FrameMouseDeltaX = MousePos.x - PrevMousePos.x;
+    FrameMouseDeltaY = MousePos.y - PrevMousePos.y;
+    if (bUseRawMouse)
+    {
+        FrameMouseDeltaX = RawMouseDeltaAccumX;
+        FrameMouseDeltaY = RawMouseDeltaAccumY;
+    }
+    RawMouseDeltaAccumX = 0;
+    RawMouseDeltaAccumY = 0;
 
     if (GetKeyDown(VK_LBUTTON))
     {
@@ -80,6 +77,174 @@ void InputSystem::Tick()
         bRightDragging = false;
         bRightDragCandidate = false;
     }
+
+    UpdateCurrentSnapshot();
+}
+
+FInputSystemSnapshot InputSystem::TickAndMakeSnapshot()
+{
+    Tick();
+    return MakeSnapshot();
+}
+
+FInputSystemSnapshot InputSystem::MakeSnapshot() const
+{
+    return CurrentSnapshot;
+}
+
+void InputSystem::RefreshSnapshot()
+{
+    UpdateCurrentSnapshot();
+}
+
+void InputSystem::SetUseRawMouse(bool bEnable)
+{
+    if (bUseRawMouse == bEnable)
+    {
+        return;
+    }
+
+    bUseRawMouse = bEnable;
+    ResetMouseDelta();
+    UpdateCurrentSnapshot();
+}
+
+void InputSystem::AddRawMouseDelta(int DeltaX, int DeltaY)
+{
+    RawMouseDeltaAccumX += DeltaX;
+    RawMouseDeltaAccumY += DeltaY;
+}
+
+void InputSystem::ResetTransientState()
+{
+    bLeftDragJustStarted = false;
+    bRightDragJustStarted = false;
+    bLeftDragJustEnded = false;
+    bRightDragJustEnded = false;
+    ResetDragState();
+    ResetMouseDelta();
+    ResetWheelDelta();
+    UpdateCurrentSnapshot();
+}
+
+void InputSystem::ResetAllKeyStates()
+{
+    for (int VK = 0; VK < 256; ++VK)
+    {
+        CurrentStates[VK] = false;
+        PrevStates[VK] = false;
+    }
+    UpdateCurrentSnapshot();
+}
+
+void InputSystem::ResetMouseDelta()
+{
+    GetCursorPos(&MousePos);
+    PrevMousePos = MousePos;
+    FrameMouseDeltaX = 0;
+    FrameMouseDeltaY = 0;
+    RawMouseDeltaAccumX = 0;
+    RawMouseDeltaAccumY = 0;
+    UpdateCurrentSnapshot();
+}
+
+void InputSystem::ResetWheelDelta()
+{
+    ScrollDelta = 0;
+    PrevScrollDelta = 0;
+    UpdateCurrentSnapshot();
+}
+
+void InputSystem::ResetCaptureStateForPIEEnd()
+{
+    SetUseRawMouse(false);
+    ResetAllKeyStates();
+    ResetTransientState();
+    GuiState.bUsingMouse = false;
+    GuiState.bUsingKeyboard = false;
+    GuiState.bUsingTextInput = false;
+    UpdateCurrentSnapshot();
+}
+
+void InputSystem::UpdateCurrentSnapshot()
+{
+    FInputSystemSnapshot Snapshot{};
+    for (int VK = 0; VK < 256; ++VK)
+    {
+        Snapshot.KeyDown[VK] = CurrentStates[VK];
+        Snapshot.KeyPressed[VK] = CurrentStates[VK] && !PrevStates[VK];
+        Snapshot.KeyReleased[VK] = !CurrentStates[VK] && PrevStates[VK];
+    }
+
+    Snapshot.bLeftMouseDown = Snapshot.KeyDown[VK_LBUTTON];
+    Snapshot.bLeftMousePressed = Snapshot.KeyPressed[VK_LBUTTON];
+    Snapshot.bLeftMouseReleased = Snapshot.KeyReleased[VK_LBUTTON];
+    Snapshot.bRightMouseDown = Snapshot.KeyDown[VK_RBUTTON];
+    Snapshot.bRightMousePressed = Snapshot.KeyPressed[VK_RBUTTON];
+    Snapshot.bRightMouseReleased = Snapshot.KeyReleased[VK_RBUTTON];
+    Snapshot.bMiddleMouseDown = Snapshot.KeyDown[VK_MBUTTON];
+    Snapshot.bMiddleMousePressed = Snapshot.KeyPressed[VK_MBUTTON];
+    Snapshot.bMiddleMouseReleased = Snapshot.KeyReleased[VK_MBUTTON];
+    Snapshot.bXButton1Down = Snapshot.KeyDown[VK_XBUTTON1];
+    Snapshot.bXButton1Pressed = Snapshot.KeyPressed[VK_XBUTTON1];
+    Snapshot.bXButton1Released = Snapshot.KeyReleased[VK_XBUTTON1];
+    Snapshot.bXButton2Down = Snapshot.KeyDown[VK_XBUTTON2];
+    Snapshot.bXButton2Pressed = Snapshot.KeyPressed[VK_XBUTTON2];
+    Snapshot.bXButton2Released = Snapshot.KeyReleased[VK_XBUTTON2];
+
+    Snapshot.MousePos = MousePos;
+    Snapshot.MouseDeltaX = FrameMouseDeltaX;
+    Snapshot.MouseDeltaY = FrameMouseDeltaY;
+    Snapshot.ScrollDelta = PrevScrollDelta;
+
+    Snapshot.bLeftDragStarted = bLeftDragJustStarted;
+    Snapshot.bLeftDragging = bLeftDragging;
+    Snapshot.bLeftDragEnded = bLeftDragJustEnded;
+    Snapshot.LeftDragVector = GetLeftDragVector();
+
+    Snapshot.bRightDragStarted = bRightDragJustStarted;
+    Snapshot.bRightDragging = bRightDragging;
+    Snapshot.bRightDragEnded = bRightDragJustEnded;
+    Snapshot.RightDragVector = GetRightDragVector();
+
+    Snapshot.bUsingRawMouse = bUseRawMouse;
+    Snapshot.bGuiUsingMouse = GuiState.bUsingMouse;
+    Snapshot.bGuiUsingKeyboard = GuiState.bUsingKeyboard;
+    Snapshot.bGuiUsingTextInput = GuiState.bUsingTextInput;
+    Snapshot.bWindowFocused = bWindowFocused;
+
+    // 임시 진단: 우클릭 상태가 Snapshot까지 도달하는지 확인
+    static bool sLastRBtn = false;
+    const bool bRBtnNow = Snapshot.KeyDown[VK_RBUTTON];
+    if (bRBtnNow != sLastRBtn)
+    {
+        UE_LOG("[DIAG-IS] RBUTTON KeyDown=%d, GuiMouse=%d, Focused=%d, RawMouse=%d, OwnerHWnd=%p, FG=%p",
+            bRBtnNow ? 1 : 0,
+            Snapshot.bGuiUsingMouse ? 1 : 0,
+            Snapshot.bWindowFocused ? 1 : 0,
+            Snapshot.bUsingRawMouse ? 1 : 0,
+            OwnerHWnd,
+            GetForegroundWindow());
+        sLastRBtn = bRBtnNow;
+    }
+
+    CurrentSnapshot = Snapshot;
+}
+
+void InputSystem::ResetDragState()
+{
+    bLeftDragCandidate = false;
+    bRightDragCandidate = false;
+    bLeftDragging = false;
+    bRightDragging = false;
+    bLeftDragJustStarted = false;
+    bRightDragJustStarted = false;
+    bLeftDragJustEnded = false;
+    bRightDragJustEnded = false;
+    LeftDragStartPos = MousePos;
+    LeftMouseDownPos = MousePos;
+    RightDragStartPos = MousePos;
+    RightMouseDownPos = MousePos;
 }
 
 void InputSystem::FilterDragThreshold(

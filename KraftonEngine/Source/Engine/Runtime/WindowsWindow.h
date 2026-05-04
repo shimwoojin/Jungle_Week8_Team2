@@ -19,12 +19,19 @@ public:
 	float GetHeight() const { return Height; }
 
 	void OnResized(unsigned int InWidth, unsigned int InHeight);
+	void SetTitle(const wchar_t* Title);
+	void ResizeClient(unsigned int InWidth, unsigned int InHeight);
 
 	/** ScreenToClient 래핑 — 스크린 좌표를 클라이언트 좌표로 변환 */
 	POINT ScreenToClientPoint(POINT ScreenPoint) const;
+
+	void ToggleFullscreen();
+	bool IsFullscreen() const { return bIsFullscreen; }
 
 private:
 	HWND HWindow = nullptr;
 	float Width = 0.f;
 	float Height = 0.f;
+	bool bIsFullscreen = false;
+	RECT SavedWindowRect = {};
 };

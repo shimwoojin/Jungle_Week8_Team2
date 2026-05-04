@@ -1,8 +1,9 @@
-﻿#pragma once
+#pragma once
 #include "Object/Object.h"
 #include "Object/ObjectFactory.h"
 #include "Component/SceneComponent.h"
 #include "Core/TickFunction.h"
+#include "Runtime/Delegate.h"
 
 class FArchive;
 
@@ -22,6 +23,7 @@ public:
 	AActor();
 	~AActor() override;
 
+	virtual void InitDefaultComponents() {}
 	virtual void BeginPlay();
 	virtual void Tick(float DeltaTime);
 	virtual void EndPlay();
@@ -30,6 +32,7 @@ public:
 
 	void Serialize(FArchive& Ar) override;
 	UObject* Duplicate(UObject* NewOuter = nullptr) const override;
+	virtual void RemapActorReferences(const TMap<uint32, uint32>& ActorUUIDRemap) { (void)ActorUUIDRemap; }
 
 	// 컴포넌트 생성 + Owner 설정 + 등록 + 렌더 상태 생성
 	template<typename T>
@@ -39,9 +42,15 @@ public:
 		T* Comp = UObjectManager::Get().CreateObject<T>(this);
 		Comp->SetOwner(this);
 		OwnedComponents.push_back(Comp);
+		if (!RootComponent)
+		{
+			if (USceneComponent* SceneComponent = Cast<USceneComponent>(Comp))
+			{
+				RootComponent = SceneComponent;
+			}
+		}
 		bPrimitiveCacheDirty = true;
 		Comp->CreateRenderState();
-		MarkPickingDirty();
 		return Comp;
 	}
 
@@ -80,6 +89,15 @@ public:
 
 	bool IsVisible() const { return bVisible; }
 	void SetVisible(bool Visible);
+	void SetActorHiddenInGame(bool bHidden);
+	void SetActorEnableCollision(bool bEnabled);
+	bool IsActorCollisionEnabled() const { return bActorCollisionEnabled; }
+	void SetActorTickEnabled(bool bEnabled);
+	bool IsActorTickEnabled() const { return PrimaryActorTick.bTickEnabled; }
+
+	bool IsPooledActor() const { return bIsPooledActor; }
+	bool IsPooledActorInactive() const { return bIsPooledActor && bIsPooledActorInactive; }
+	void SetPooledActorState(bool bPooled, bool bInactive);
 
 	// Tick 필요 여부 — false면 Tick 호출 자체를 건너뜀 (StaticMesh 등)
 	bool bNeedsTick = true;
@@ -90,6 +108,11 @@ public:
 	void SetQueuedForPartitionUpdate(bool bQueued) { bQueuedForPartitionUpdate = bQueued; }
 	
 	FActorTickFunction PrimaryActorTick;
+	
+	bool IsOverlappingActor(const AActor* Other) const;
+
+
+
 protected:
 	virtual void TickActor( float DeltaSeconds, ELevelTick TickType, FActorTickFunction& ThisTickFunction );
 	
@@ -107,4 +130,7 @@ protected:
 	mutable bool bPrimitiveCacheDirty = true;
 	bool bQueuedForPartitionUpdate = false;
 	bool bActorHasBegunPlay = false;
+	bool bActorCollisionEnabled = true;
+	bool bIsPooledActor = false;
+	bool bIsPooledActorInactive = false;
 };

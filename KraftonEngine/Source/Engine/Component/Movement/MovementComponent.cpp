@@ -1,7 +1,9 @@
-﻿#include "Component/Movement/MovementComponent.h"
+#include "Component/Movement/MovementComponent.h"
 
 #include "Component/SceneComponent.h"
+#include "Core/CollisionTypes.h"
 #include "GameFramework/AActor.h"
+#include "GameFramework/World.h"
 #include "Object/ObjectFactory.h"
 #include "Serialization/Archive.h"
 
@@ -49,6 +51,10 @@ void UMovementComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutP
 	UActorComponent::GetEditableProperties(OutProps);
 	OutProps.push_back({ "Auto Register Updated", EPropertyType::Bool, &bAutoRegisterUpdatedComponent });
 	OutProps.push_back({ "Updated Component", EPropertyType::SceneComponentRef, &UpdatedComponentPath });
+	OutProps.push_back({ "Receive Controller Input", EPropertyType::Bool, &bReceiveControllerInput });
+	OutProps.push_back({ "Controller Input Priority", EPropertyType::Int, &ControllerInputPriority, -100.0f, 100.0f, 1.0f });
+	OutProps.push_back({ "Last Controller Direction", EPropertyType::Vec3, &LastControllerWorldDirection, 0.0f, 0.0f, 0.1f });
+	OutProps.push_back({ "Last Controller Delta", EPropertyType::Vec3, &LastControllerWorldDelta, 0.0f, 0.0f, 0.1f });
 }
 
 void UMovementComponent::Serialize(FArchive& Ar)
@@ -56,6 +62,8 @@ void UMovementComponent::Serialize(FArchive& Ar)
 	UActorComponent::Serialize(Ar);
 	Ar << bAutoRegisterUpdatedComponent;
 	Ar << UpdatedComponentPath;
+	Ar << bReceiveControllerInput;
+	Ar << ControllerInputPriority;
 	// UpdatedComponent 포인터는 BeginPlay에서 재해결되므로 직렬화 제외.
 }
 
@@ -104,6 +112,137 @@ void UMovementComponent::ClearUpdatedComponentIfMatches(const USceneComponent* R
 	UpdatedComponentPath.clear();
 	bAutoRegisterUpdatedComponent = true;
 	TryAutoRegisterUpdatedComponent();
+}
+
+void UMovementComponent::RecordControllerMovementInput(const FControllerMovementInput& Input)
+{
+	LastControllerWorldDirection = Input.WorldDirection;
+	LastControllerWorldDelta = Input.WorldDelta;
+	LastControllerInputTime += Input.DeltaTime;
+	if (Input.DeltaTime > 0.0f)
+	{
+		MovementVelocity = Input.WorldDelta / Input.DeltaTime;
+	}
+	else
+	{
+		MovementVelocity = FVector::ZeroVector;
+	}
+}
+
+bool UMovementComponent::ApplyControllerMovementInput(const FControllerMovementInput& Input)
+{
+	RecordControllerMovementInput(Input);
+	return false;
+}
+
+bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, FHitResult* OutHit)
+{
+	if (OutHit)
+	{
+		*OutHit = FHitResult();
+	}
+
+	if (Delta.IsNearlyZero())
+	{
+		return true;
+	}
+
+	if (!ResolveUpdatedComponent())
+	{
+		return false;
+	}
+
+	USceneComponent* Scene = GetUpdatedComponent();
+	AActor* OwnerActor = GetOwner();
+	if (!Scene || !OwnerActor)
+	{
+		return false;
+	}
+
+	UWorld* World = OwnerActor->GetWorld();
+	const FVector OldLocation = Scene->GetWorldLocation();
+	Scene->AddWorldOffset(Delta);
+
+	if (World && World->HasBlockingOverlapForActor(OwnerActor, OutHit))
+	{
+		Scene->SetWorldLocation(OldLocation);
+		return false;
+	}
+
+	return true;
+}
+
+bool UMovementComponent::SafeMoveUpdatedComponentPreserveAxes(const FVector& Delta, FVector* OutAppliedDelta, FHitResult* OutHit)
+{
+	if (OutAppliedDelta)
+	{
+		*OutAppliedDelta = FVector::ZeroVector;
+	}
+	if (OutHit)
+	{
+		*OutHit = FHitResult();
+	}
+
+	if (Delta.IsNearlyZero())
+	{
+		return true;
+	}
+
+	FHitResult FullMoveHit;
+	if (SafeMoveUpdatedComponent(Delta, &FullMoveHit))
+	{
+		if (OutAppliedDelta)
+		{
+			*OutAppliedDelta = Delta;
+		}
+		return true;
+	}
+
+	if (OutHit)
+	{
+		*OutHit = FullMoveHit;
+	}
+
+	FVector AppliedDelta = FVector::ZeroVector;
+	FHitResult LastBlockingHit = FullMoveHit;
+	bool bMovedAnyAxis = false;
+
+	const FVector AxisDeltas[3] =
+	{
+		FVector(Delta.X, 0.0f, 0.0f),
+		FVector(0.0f, Delta.Y, 0.0f),
+		FVector(0.0f, 0.0f, Delta.Z)
+	};
+
+	for (const FVector& AxisDelta : AxisDeltas)
+	{
+		if (AxisDelta.IsNearlyZero())
+		{
+			continue;
+		}
+
+		FHitResult AxisHit;
+		if (SafeMoveUpdatedComponent(AxisDelta, &AxisHit))
+		{
+			AppliedDelta += AxisDelta;
+			bMovedAnyAxis = true;
+		}
+		else
+		{
+			LastBlockingHit = AxisHit;
+		}
+	}
+
+	if (OutAppliedDelta)
+	{
+		*OutAppliedDelta = AppliedDelta;
+	}
+	if (OutHit && LastBlockingHit.bHit)
+	{
+		*OutHit = LastBlockingHit;
+	}
+
+	return bMovedAnyAxis;
 }
 
 void UMovementComponent::TryAutoRegisterUpdatedComponent()

@@ -26,8 +26,11 @@ namespace Key
 	constexpr const char* bGizmo = "bGizmo";
 	constexpr const char* bBillboardText = "bBillboardText";
 	constexpr const char* bBoundingVolume = "bBoundingVolume";
+	constexpr const char* bCollisionShapes = "bCollisionShapes";
 	constexpr const char* bDebugDraw = "bDebugDraw";
 	constexpr const char* bOctree = "bOctree";
+	constexpr const char* bPickingBVH = "bPickingBVH";
+	constexpr const char* bCollisionBVH = "bCollisionBVH";
 	constexpr const char* bFog = "bFog";
 	constexpr const char* bShowShadowFrustum = "bShowShadowFrustum";
 	constexpr const char* GridSpacing = "GridSpacing";
@@ -124,8 +127,10 @@ void FEditorSettings::SaveToFile(const FString& Path) const
 		SlotObj[Key::bGizmo] = Opts.ShowFlags.bGizmo;
 		SlotObj[Key::bBillboardText] = Opts.ShowFlags.bBillboardText;
 		SlotObj[Key::bBoundingVolume] = Opts.ShowFlags.bBoundingVolume;
+		SlotObj[Key::bCollisionShapes] = Opts.ShowFlags.bCollisionShapes;
 		SlotObj[Key::bDebugDraw] = Opts.ShowFlags.bDebugDraw;
 		SlotObj[Key::bOctree] = Opts.ShowFlags.bOctree;
+		SlotObj[Key::bPickingBVH] = Opts.ShowFlags.bPickingBVH;
 		SlotObj[Key::bFog] = Opts.ShowFlags.bFog;
 		SlotObj[Key::bShowShadowFrustum] = Opts.ShowFlags.bShowShadowFrustum;
 		SlotObj[Key::GridSpacing] = Opts.GridSpacing;
@@ -266,7 +271,12 @@ void FEditorSettings::LoadFromFile(const FString& Path)
 				JSON S = SlotsArr[i];
 				FViewportRenderOptions& Opts = SlotOptions[i];
 				if (S.hasKey(Key::ViewMode))
-					Opts.ViewMode = static_cast<EViewMode>(S[Key::ViewMode].ToInt());
+				{
+					const int32 ViewModeValue = S[Key::ViewMode].ToInt();
+					Opts.ViewMode = (ViewModeValue >= 0 && ViewModeValue < static_cast<int32>(EViewMode::Count))
+						? static_cast<EViewMode>(ViewModeValue)
+						: EViewMode::Lit_Phong;
+				}
 				if (S.hasKey(Key::ViewportType))
 					Opts.ViewportType = static_cast<ELevelViewportType>(S[Key::ViewportType].ToInt());
 				if (S.hasKey(Key::bPrimitives))
@@ -281,10 +291,14 @@ void FEditorSettings::LoadFromFile(const FString& Path)
 					Opts.ShowFlags.bBillboardText = S[Key::bBillboardText].ToBool();
 				if (S.hasKey(Key::bBoundingVolume))
 					Opts.ShowFlags.bBoundingVolume = S[Key::bBoundingVolume].ToBool();
+				if (S.hasKey(Key::bCollisionShapes))
+					Opts.ShowFlags.bCollisionShapes = S[Key::bCollisionShapes].ToBool();
 				if (S.hasKey(Key::bDebugDraw))
 					Opts.ShowFlags.bDebugDraw = S[Key::bDebugDraw].ToBool();
 				if (S.hasKey(Key::bOctree))
 					Opts.ShowFlags.bOctree = S[Key::bOctree].ToBool();
+				if (S.hasKey(Key::bPickingBVH))
+					Opts.ShowFlags.bPickingBVH = S[Key::bPickingBVH].ToBool();
 				if (S.hasKey(Key::bFog))
 					Opts.ShowFlags.bFog = S[Key::bFog].ToBool();
 				if (S.hasKey(Key::bShowShadowFrustum))

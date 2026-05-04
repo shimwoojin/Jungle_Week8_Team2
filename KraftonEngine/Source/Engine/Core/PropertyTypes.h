@@ -22,6 +22,7 @@ enum class EPropertyType : uint8_t
 	MaterialSlot,  // FMaterialSlot — 머티리얼 경로
 	Enum,
 	Vec3Array,
+	ActorRef,
 };
 
 // 머티리얼 슬롯: 경로를 하나의 단위로 관리
@@ -45,4 +46,9 @@ struct FPropertyDescriptor
 	// Enum Metadata
 	const char** EnumNames = nullptr;
 	uint32		 EnumCount = 0;
+
+	// Optional editor metadata. Existing property initializers can ignore these.
+	std::string Category = "Default";
+	std::string Tooltip;
+	uint32 Flags = 0;
 };

@@ -1,4 +1,4 @@
-﻿#include "Editor/Viewport/FLevelViewportLayout.h"
+#include "Editor/Viewport/FLevelViewportLayout.h"
 
 #include "Editor/EditorEngine.h"
 #include "Editor/Viewport/LevelEditorViewportClient.h"
@@ -7,6 +7,13 @@
 #include "Editor/Selection/SelectionManager.h"
 #include "Engine/Runtime/WindowsWindow.h"
 #include "Engine/Input/InputSystem.h"
+#include "Engine/Input/InputFrame.h"
+#include "GameFramework/AActor.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/CameraActor.h"
+#include "Component/SceneComponent.h"
+#include "Component/StaticMeshComponent.h"
 #include "GameFramework/DecalActor.h"
 #include "GameFramework/HeightFogActor.h"
 #include "GameFramework/Light/AmbientLightActor.h"
@@ -16,14 +23,20 @@
 #include "GameFramework/World.h"
 #include "Render/Pipeline/Renderer.h"
 #include "Viewport/Viewport.h"
+#include "Viewport/GameViewportClient.h"
+#include "Viewport/ViewportPresentationTypes.h"
 #include "UI/SSplitter.h"
 #include "Math/MathUtils.h"
 #include "Platform/Paths.h"
 #include "ImGui/imgui.h"
 #include "WICTextureLoader.h"
 #include "Component/CameraComponent.h"
+#include "Camera/CameraTypes.h"
+#include "Component/PawnOrientationComponent.h"
+#include "Component/Movement/PawnMovementComponent.h"
 #include "Component/GizmoComponent.h"
 #include "Component/Light/LightComponentBase.h"
+#include "Serialization/PrefabSaveManager.h"
 
 #include "GameFramework/StaticMeshActor.h"
 
@@ -31,6 +44,23 @@
 
 namespace
 {
+
+template <typename TComponent>
+TComponent* FindActorComponent(AActor* Actor)
+{
+	if (!Actor)
+	{
+		return nullptr;
+	}
+	for (UActorComponent* Component : Actor->GetComponents())
+	{
+		if (TComponent* Typed = Cast<TComponent>(Component))
+		{
+			return Typed;
+		}
+	}
+	return nullptr;
+}
 enum class EToolbarIcon : int32
 {
 	Menu = 0,
@@ -1009,6 +1039,34 @@ void FLevelViewportLayout::RenderViewportUI(float DeltaTime)
 				AStaticMeshActor* NewActor = Cast<AStaticMeshActor>(FObjectFactory::Get().Create(AStaticMeshActor::StaticClass()->GetName(), Editor->GetWorld()));
 				NewActor->InitDefaultComponents(FPaths::ToUtf8(ContentItem.Path));
 				Editor->GetWorld()->AddActor(NewActor);
+				
+				FVector SpawnLocation(0, 0, 0);
+				FPoint MP = { ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y };
+				if (TryComputePlacementLocation(GetActiveViewportSlotIndex(), MP, SpawnLocation))
+				{
+					NewActor->SetActorLocation(SpawnLocation);
+				}
+				if (SelectionManager)
+				{
+					SelectionManager->Select(NewActor);
+				}
+			}
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PrefabContentItem"))
+			{
+				FContentItem ContentItem = *reinterpret_cast<const FContentItem*>(payload->Data);
+				FString PrefabPath = FPaths::ToUtf8(ContentItem.Path.wstring());
+				
+				FVector SpawnLocation(0, 0, 0);
+				FPoint MP = { ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y };
+				TryComputePlacementLocation(GetActiveViewportSlotIndex(), MP, SpawnLocation);
+
+				// Content Browser placement is prefab instancing, not scene loading.
+				// Renew the Actor UUID so multiple drops of the same prefab do not collide.
+				AActor* SpawnedActor = FPrefabSaveManager::SpawnPrefab(Editor->GetWorld(), PrefabPath, SpawnLocation, true);
+				if (SpawnedActor && SelectionManager)
+				{
+					SelectionManager->Select(SpawnedActor);
+				}
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -1017,10 +1075,14 @@ void FLevelViewportLayout::RenderViewportUI(float DeltaTime)
 	if (ContentSize.x > 0 && ContentSize.y > 0)
 	{
 		// 상단에 Play/Stop 툴바 영역 확보 후 나머지를 뷰포트에 할당
-		const float ToolbarHeight = PlayToolbar.GetDesiredHeight();
-		ImGui::SetCursorScreenPos(ContentPos);
-		PlayToolbar.Render(ContentSize.x);
-		RenderSharedGizmoToolbar(ContentPos.x, ContentPos.y);
+		float ToolbarHeight = 0.0f;
+		if (!Editor->IsPIEPossessedMode())
+		{
+			ToolbarHeight = PlayToolbar.GetDesiredHeight();
+			ImGui::SetCursorScreenPos(ContentPos);
+			PlayToolbar.Render(ContentSize.x);
+			RenderSharedGizmoToolbar(ContentPos.x, ContentPos.y);
+		}
 
 		FRect ContentRect = {
 			ContentPos.x,
@@ -1059,15 +1121,36 @@ void FLevelViewportLayout::RenderViewportUI(float DeltaTime)
 			}
 		}
 
-		// 각 뷰포트 패인 상단에 툴바 오버레이 렌더
-		for (int32 i = 0; i < ActiveSlotCount; ++i)
+		// PIE의 게임 뷰포트는 에디터 창 전체가 아니라 활성 뷰포트 패널 안에 표시된다.
+		// 따라서 입력/향후 RmlUi 렌더가 같은 좌표계를 쓰도록 실제 표시 Rect를 매 프레임 동기화한다.
+		if (Editor && Editor->IsPlayingInEditor() && ActiveViewportClient)
 		{
-			const bool bShowPaneToolbar =
-				IsSlotVisibleEnough(i) &&
-				(LayoutTransition == EViewportLayoutTransition::None || i == TransitionSourceSlot);
-			if (bShowPaneToolbar)
+			if (UGameViewportClient* GameViewportClient = Editor->GetGameViewportClient())
 			{
-				RenderPaneToolbar(i);
+				const FRect& ActiveRect = ActiveViewportClient->GetViewportScreenRect();
+				const FViewportPresentationRect PresentationRect(
+					ActiveRect.X,
+					ActiveRect.Y,
+					ActiveRect.Width,
+					ActiveRect.Height);
+
+				GameViewportClient->SetPresentationRect(PresentationRect);
+				GameViewportClient->SetCursorClipRect(PresentationRect);
+			}
+		}
+
+		// 각 뷰포트 패인 상단에 툴바 오버레이 렌더
+		if (!Editor->IsPIEPossessedMode())
+		{
+			for (int32 i = 0; i < ActiveSlotCount; ++i)
+			{
+				const bool bShowPaneToolbar =
+					IsSlotVisibleEnough(i) &&
+					(LayoutTransition == EViewportLayoutTransition::None || i == TransitionSourceSlot);
+				if (bShowPaneToolbar)
+				{
+					RenderPaneToolbar(i);
+				}
 			}
 		}
 
@@ -1150,21 +1233,24 @@ void FLevelViewportLayout::RenderViewportUI(float DeltaTime)
 			}
 
 			// 활성 뷰포트 전환 (분할 바 드래그 중이 아닐 때)
-			if (!DraggingSplitter && (ImGui::IsMouseClicked(0) || ImGui::IsMouseClicked(1)))
+			if (!Editor->IsPIEPossessedMode())
 			{
-				for (int32 i = 0; i < ActiveSlotCount; ++i)
+				if (!DraggingSplitter && (ImGui::IsMouseClicked(0) || ImGui::IsMouseClicked(1)))
 				{
-					if (i < static_cast<int32>(LevelViewportClients.size()) &&
-						IsSlotVisibleEnough(i) && ViewportWindows[i]->IsHover(MP))
+					for (int32 i = 0; i < ActiveSlotCount; ++i)
 					{
-						if (LevelViewportClients[i] != ActiveViewportClient)
-							SetActiveViewport(LevelViewportClients[i]);
-						break;
+						if (i < static_cast<int32>(LevelViewportClients.size()) &&
+							IsSlotVisibleEnough(i) && ViewportWindows[i]->IsHover(MP))
+						{
+							if (LevelViewportClients[i] != ActiveViewportClient)
+								SetActiveViewport(LevelViewportClients[i]);
+							break;
+						}
 					}
 				}
-			}
 
-			HandleViewportContextMenuInput(MP);
+				HandleViewportContextMenuInput(MP);
+			}
 		}
 	}
 
@@ -1483,7 +1569,10 @@ void FLevelViewportLayout::RenderPaneToolbar(int32 SlotIndex)
 			ImGui::SameLine();
 
 			static const char* ViewModeNames[] = { "Phong", "Unlit", "Gouraud", "Lambert", "Wireframe", "SceneDepth", "WorldNormal", "LightCulling" };
-			const char* CurrentViewModeName = ViewModeNames[static_cast<int32>(Opts.ViewMode)];
+			const int32 ViewModeIndex = static_cast<int32>(Opts.ViewMode);
+			const char* CurrentViewModeName = (ViewModeIndex >= 0 && ViewModeIndex < static_cast<int32>(EViewMode::Count))
+				? ViewModeNames[ViewModeIndex]
+				: ViewModeNames[static_cast<int32>(EViewMode::Lit_Phong)];
 
 			char ViewModePopupID[64];
 			snprintf(ViewModePopupID, sizeof(ViewModePopupID), "ViewModePopup_%d", SlotIndex);
@@ -1496,7 +1585,9 @@ void FLevelViewportLayout::RenderPaneToolbar(int32 SlotIndex)
 			if (ImGui::BeginPopup(ViewModePopupID))
 			{
 				ImGui::Text("View Mode");
-				int32 CurrentMode = static_cast<int32>(Opts.ViewMode);
+				int32 CurrentMode = (ViewModeIndex >= 0 && ViewModeIndex < static_cast<int32>(EViewMode::Count))
+					? ViewModeIndex
+					: static_cast<int32>(EViewMode::Lit_Phong);
 
 				if (ImGui::BeginTable("ViewModeTable", 3, ImGuiTableFlags_SizingStretchSame))
 				{
@@ -1519,14 +1610,14 @@ void FLevelViewportLayout::RenderPaneToolbar(int32 SlotIndex)
 					ImGui::RadioButton("WorldNormal", &CurrentMode, static_cast<int32>(EViewMode::WorldNormal));
 
 					ImGui::TableNextRow();
-				 ImGui::TableNextColumn();
-				 ImGui::RadioButton("LightCulling", &CurrentMode, static_cast<int32>(EViewMode::LightCulling));
-				 ImGui::TableNextColumn();
-				 ImGui::Dummy(ImVec2(0.0f, 0.0f));
-				 ImGui::TableNextColumn();
-				 ImGui::Dummy(ImVec2(0.0f, 0.0f));
+					ImGui::TableNextColumn();
+					ImGui::RadioButton("LightCulling", &CurrentMode, static_cast<int32>(EViewMode::LightCulling));
+					ImGui::TableNextColumn();
+					ImGui::Dummy(ImVec2(0.0f, 0.0f));
+					ImGui::TableNextColumn();
+					ImGui::Dummy(ImVec2(0.0f, 0.0f));
 
-				 ImGui::EndTable();
+					ImGui::EndTable();
 				}
 
 				Opts.ViewMode = static_cast<EViewMode>(CurrentMode);
@@ -1566,21 +1657,27 @@ void FLevelViewportLayout::RenderPaneToolbar(int32 SlotIndex)
 					ImGui::TableNextColumn();
 					ImGui::Checkbox("Bounding Volume", &Opts.ShowFlags.bBoundingVolume);
 					ImGui::TableNextColumn();
+					ImGui::Checkbox("Collision", &Opts.ShowFlags.bCollisionShapes);
+					ImGui::TableNextColumn();
 					ImGui::Checkbox("Debug Draw", &Opts.ShowFlags.bDebugDraw);
 					ImGui::TableNextColumn();
 					ImGui::Checkbox("Octree", &Opts.ShowFlags.bOctree);
 					ImGui::TableNextColumn();
 					ImGui::Checkbox("Fog", &Opts.ShowFlags.bFog);
 					ImGui::TableNextColumn();
-					ImGui::Checkbox("FXAA", &Opts.ShowFlags.bFXAA);
 
 					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("FXAA", &Opts.ShowFlags.bFXAA);
 					ImGui::TableNextColumn();
 					ImGui::Checkbox("Visualize2.5D", &Opts.ShowFlags.bVisualize25DCulling);
 					ImGui::TableNextColumn();
 					ImGui::Checkbox("Shadows", &FProjectSettings::Get().Shadow.bEnabled);
 					ImGui::TableNextColumn();
 					ImGui::Checkbox("Shadow Frustum", &Opts.ShowFlags.bShowShadowFrustum);
+					ImGui::TableNextColumn();
+					ImGui::Checkbox("Picking BVH", &Opts.ShowFlags.bPickingBVH);
+					ImGui::Checkbox("Collision BVH", &Opts.ShowFlags.bCollisionBVH);
 
 					ImGui::EndTable();
 				}
@@ -1750,11 +1847,12 @@ void FLevelViewportLayout::HandleViewportContextMenuInput(const FPoint& MousePos
 		}
 
 		const bool bReleasedOverSameSlot = ViewportWindows[i]->IsHover(MousePos);
+		FInputFrame InputFrame(InputSystem::Get().MakeSnapshot());
 		const bool bClickCandidate =
 			bReleasedOverSameSlot &&
 			ContextMenuState.RightClickTravelSq[i] <= RightClickPopupThresholdSq &&
-			!InputSystem::Get().GetRightDragging() &&
-			!InputSystem::Get().GetRightDragEnd();
+			!InputFrame.IsRightDragging() &&
+			!InputFrame.WasRightDragEnded();
 		const ImGuiIO& IO = ImGui::GetIO();
 		const bool bNoModifiers = !IO.KeyCtrl && !IO.KeyShift && !IO.KeyAlt && !IO.KeySuper;
 
@@ -1813,15 +1911,16 @@ void FLevelViewportLayout::RenderViewportPlaceActorPopup()
 			}
 		};
 
-		PlaceActorMenuItem("Cube", EViewportPlaceActorType::Cube);
-		PlaceActorMenuItem("Sphere", EViewportPlaceActorType::Sphere);
-		PlaceActorMenuItem("Cylinder", EViewportPlaceActorType::Cylinder);
+		PlaceActorMenuItem("Empty Actor", EViewportPlaceActorType::EmptyActor);
 		PlaceActorMenuItem("Decal", EViewportPlaceActorType::Decal);
 		PlaceActorMenuItem("Height Fog", EViewportPlaceActorType::HeightFog);
 		PlaceActorMenuItem("Ambient Light", EViewportPlaceActorType::AmbientLight);
 		PlaceActorMenuItem("Directional Light", EViewportPlaceActorType::DirectionalLight);
 		PlaceActorMenuItem("Point Light", EViewportPlaceActorType::PointLight);
 		PlaceActorMenuItem("Spot Light", EViewportPlaceActorType::SpotLight);
+		PlaceActorMenuItem("Camera", EViewportPlaceActorType::Camera);
+		PlaceActorMenuItem("Pawn", EViewportPlaceActorType::Pawn);
+		PlaceActorMenuItem("PlayerController", EViewportPlaceActorType::PlayerController);
 
 		ImGui::EndMenu();
 	}
@@ -1915,36 +2014,6 @@ AActor* FLevelViewportLayout::SpawnActorFromViewportMenu(EViewportPlaceActorType
 
 	switch (Type)
 	{
-	case EViewportPlaceActorType::Cube:
-	{
-		AStaticMeshActor* Actor = World->SpawnActor<AStaticMeshActor>();
-		if (Actor)
-		{
-			Actor->InitDefaultComponents("Data/BasicShape/Cube.OBJ");
-			SpawnedActor = Actor;
-		}
-		break;
-	}
-	case EViewportPlaceActorType::Sphere:
-	{
-		AStaticMeshActor* Actor = World->SpawnActor<AStaticMeshActor>();
-		if (Actor)
-		{
-			Actor->InitDefaultComponents("Data/BasicShape/Sphere.OBJ");
-			SpawnedActor = Actor;
-		}
-		break;
-	}
-	case EViewportPlaceActorType::Cylinder:
-	{
-		AStaticMeshActor* Actor = World->SpawnActor<AStaticMeshActor>();
-		if (Actor)
-		{
-			Actor->InitDefaultComponents("Data/BasicShape/Cylinder.obj");
-			SpawnedActor = Actor;
-		}
-		break;
-	}
 	case EViewportPlaceActorType::Decal:
 	{
 		ADecalActor* Actor = World->SpawnActor<ADecalActor>();
@@ -2009,6 +2078,52 @@ AActor* FLevelViewportLayout::SpawnActorFromViewportMenu(EViewportPlaceActorType
 			Actor->InitDefaultComponents();
 			SpawnedActor = Actor;
 			SpawnLocation.Z += 1.0f;
+		}
+		break;
+	}
+
+	case EViewportPlaceActorType::Camera:
+	{
+		ACameraActor* Actor = World->SpawnActor<ACameraActor>();
+		if (Actor)
+		{
+			Actor->InitDefaultComponents();
+			if (UCameraComponent* Camera = Actor->GetCameraComponent())
+			{
+				Camera->SetWorldLocation(SpawnLocation);
+				Camera->LookAt(SpawnLocation + FVector(1.0f, 0.0f, 0.0f));
+			}
+			SpawnedActor = Actor;
+		}
+		break;
+	}
+	case EViewportPlaceActorType::EmptyActor:
+	{
+		SpawnedActor = World->SpawnActor<AActor>();
+		if (SpawnedActor)
+		{
+			UStaticMeshComponent* Root = SpawnedActor->AddComponent<UStaticMeshComponent>();
+			if (Root) SpawnedActor->SetRootComponent(Root);
+		}
+		break;
+	}
+	case EViewportPlaceActorType::Pawn:
+	{
+		APawn* Actor = World->SpawnActor<APawn>();
+		if (Actor)
+		{
+			Actor->InitDefaultComponents();
+			SpawnedActor = Actor;
+		}
+		break;
+	}
+	case EViewportPlaceActorType::PlayerController:
+	{
+		APlayerController* Actor = World->SpawnActor<APlayerController>();
+		if (Actor)
+		{
+			Actor->InitDefaultComponents();
+			SpawnedActor = Actor;
 		}
 		break;
 	}

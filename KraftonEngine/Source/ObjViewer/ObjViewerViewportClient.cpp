@@ -1,9 +1,12 @@
-﻿#include "ObjViewer/ObjViewerViewportClient.h"
+#include "ObjViewer/ObjViewerViewportClient.h"
 
 #include "Engine/Input/InputSystem.h"
+#include "Engine/Input/InputFrame.h"
 #include "Engine/Runtime/WindowsWindow.h"
 #include "Component/CameraComponent.h"
 #include "Viewport/Viewport.h"
+#include "Viewport/ViewportPresentationTypes.h"
+#include "Engine/UI/ImGui/ImGuiViewportPresenter.h"
 #include "Math/MathUtils.h"
 #include "ImGui/imgui.h"
 
@@ -65,7 +68,9 @@ static void UpdateOrbitCamera(UCameraComponent* Camera, const FVector& Target, f
 
 void FObjViewerViewportClient::Tick(float DeltaTime)
 {
-	TickInput(DeltaTime);
+	FInputFrame InputFrame(InputSystem::Get().MakeSnapshot());
+	InputFrame.ApplyGuiCapture("ObjViewerGuiCapture");
+	TickInput(DeltaTime, InputFrame);
 
 	if (Camera)
 	{
@@ -73,13 +78,12 @@ void FObjViewerViewportClient::Tick(float DeltaTime)
 	}
 }
 
-void FObjViewerViewportClient::TickInput(float DeltaTime)
+void FObjViewerViewportClient::TickInput(float DeltaTime, FInputFrame& InputFrame)
 {
 	if (!Camera) return;
-	if (InputSystem::Get().GetGuiInputState().bUsingKeyboard) return;
 
 	// 마우스가 뷰포트 영역 안에 있는지 확인
-	POINT MousePos = InputSystem::Get().GetMousePos();
+	POINT MousePos = InputFrame.GetMousePosition();
 	if (Window)
 	{
 		MousePos = Window->ScreenToClientPoint(MousePos);
@@ -93,34 +97,39 @@ void FObjViewerViewportClient::TickInput(float DeltaTime)
 	if (!bMouseInViewport) return;
 
 	// 우클릭 드래그 → 오빗 회전
-	if (InputSystem::Get().GetKey(VK_RBUTTON))
+	if (InputFrame.IsDown(VK_RBUTTON))
 	{
-		float DeltaX = static_cast<float>(InputSystem::Get().MouseDeltaX());
-		float DeltaY = static_cast<float>(InputSystem::Get().MouseDeltaY());
+		float DeltaX = static_cast<float>(InputFrame.GetMouseDeltaX());
+		float DeltaY = static_cast<float>(InputFrame.GetMouseDeltaY());
 
 		OrbitYaw += DeltaX * 0.3f;
 		OrbitPitch += DeltaY * 0.3f;
 		OrbitPitch = Clamp(OrbitPitch, -89.0f, 89.0f);
+		InputFrame.ConsumeLook("ObjViewerViewport", "Orbit camera rotate");
+		InputFrame.ConsumeKey(VK_RBUTTON, "ObjViewerViewport", "Orbit camera rotate");
 	}
 
 	// 중클릭 드래그 → 팬
-	if (InputSystem::Get().GetKey(VK_MBUTTON))
+	if (InputFrame.IsDown(VK_MBUTTON))
 	{
-		float DeltaX = static_cast<float>(InputSystem::Get().MouseDeltaX());
-		float DeltaY = static_cast<float>(InputSystem::Get().MouseDeltaY());
+		float DeltaX = static_cast<float>(InputFrame.GetMouseDeltaX());
+		float DeltaY = static_cast<float>(InputFrame.GetMouseDeltaY());
 
 		float PanScale = OrbitDistance * 0.002f;
 		FVector Right = Camera->GetRightVector();
 		FVector Up = Camera->GetUpVector();
 		OrbitTarget = OrbitTarget - Right * (DeltaX * PanScale) + Up * (DeltaY * PanScale);
+		InputFrame.ConsumeMouseDelta("ObjViewerViewport", "Middle mouse pan");
+		InputFrame.ConsumeKey(VK_MBUTTON, "ObjViewerViewport", "Middle mouse pan");
 	}
 
 	// 스크롤 → 줌
-	float ScrollNotches = InputSystem::Get().GetScrollNotches();
+	float ScrollNotches = InputFrame.GetScrollNotches();
 	if (ScrollNotches != 0.0f)
 	{
 		OrbitDistance -= ScrollNotches * OrbitDistance * 0.1f;
 		OrbitDistance = Clamp(OrbitDistance, 0.1f, 500.0f);
+		InputFrame.ConsumeScroll("ObjViewerViewport", "Orbit zoom");
 	}
 }
 
@@ -145,12 +154,9 @@ void FObjViewerViewportClient::SetViewportRect(float X, float Y, float Width, fl
 
 void FObjViewerViewportClient::RenderViewportImage()
 {
-	if (!Viewport || !Viewport->GetSRV()) return;
 	if (ViewportWidth <= 0 || ViewportHeight <= 0) return;
 
-	ImDrawList* DrawList = ImGui::GetWindowDrawList();
-	ImVec2 Min(ViewportX, ViewportY);
-	ImVec2 Max(ViewportX + ViewportWidth, ViewportY + ViewportHeight);
-
-	DrawList->AddImage((ImTextureID)Viewport->GetSRV(), Min, Max);
+	FImGuiViewportPresenter::DrawInCurrentWindow(
+		Viewport,
+		FViewportPresentationRect(ViewportX, ViewportY, ViewportWidth, ViewportHeight));
 }

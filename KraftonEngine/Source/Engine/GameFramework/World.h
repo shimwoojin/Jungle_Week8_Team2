@@ -1,7 +1,9 @@
-﻿#pragma once
+#pragma once
 #include "Object/Object.h"
 #include "Core/RayTypes.h"
 #include "Core/CollisionTypes.h"
+#include "Collision/WorldCollisionSystem.h"
+#include "Collision/WorldCollisionBVH.h"
 #include "Collision/WorldPrimitivePickingBVH.h"
 #include "GameFramework/AActor.h"
 #include "GameFramework/Level.h"
@@ -9,11 +11,15 @@
 #include "GameFramework/WorldContext.h"
 #include "Render/Scene/FScene.h"
 #include "Render/Types/LODContext.h"
+#include "Runtime/ObjectPoolSystem.h"
 #include <Collision/Octree.h>
 #include <Collision/SpatialPartition.h>
 
 class UCameraComponent;
 class UPrimitiveComponent;
+class UActorComponent;
+class APawn;
+class APlayerController;
 
 class UWorld : public UObject {
 public:
@@ -37,10 +43,28 @@ public:
 	// Actor lifecycle
 	template<typename T>
 	T* SpawnActor();
+	template<typename T>
+	T* AcquireActor(const FVector& Location, const FRotator& Rotation);
+	template<typename T>
+	T* AcquireActor(UClass* Class, const FVector& Location, const FRotator& Rotation);
+	AActor* AcquirePrefab(const FString& PrefabPath, const FVector& Location, const FRotator& Rotation = FRotator());
+	bool ReleaseActor(AActor* Actor);
+	int32 WarmUpActorPool(UClass* Class, int32 Count);
+	int32 WarmUpPrefabPool(const FString& PrefabPath, int32 Count);
 	void DestroyActor(AActor* Actor);
 	void AddActor(AActor* Actor);
 	void MarkWorldPrimitivePickingBVHDirty();
+	void InsertWorldPrimitivePickingBVH(UPrimitiveComponent* Primitive);
+	void RemoveWorldPrimitivePickingBVH(UPrimitiveComponent* Primitive);
+	void UpdateWorldPrimitivePickingBVH(UPrimitiveComponent* Primitive);
 	void BuildWorldPrimitivePickingBVHNow() const;
+	void CollectWorldPrimitivePickingBVHDebugAABBs(TArray<FWorldPrimitivePickingBVH::FDebugAABB>& OutAABBs) const;
+	void MarkWorldCollisionBVHDirty();
+	void InsertWorldCollisionBVH(UPrimitiveComponent* Primitive);
+	void RemoveWorldCollisionBVH(UPrimitiveComponent* Primitive);
+	void UpdateWorldCollisionBVH(UPrimitiveComponent* Primitive);
+	void BuildWorldCollisionBVHNow() const;
+	void CollectWorldCollisionBVHDebugAABBs(TArray<FWorldCollisionBVH::FDebugAABB>& OutAABBs) const;
 	void BeginDeferredPickingBVHUpdate();
 	void EndDeferredPickingBVHUpdate();
 	void WarmupPickingData() const;
@@ -49,7 +73,7 @@ public:
 	const TArray<AActor*>& GetActors() const { return PersistentLevel->GetActors(); }
 
 	// LOD 컨텍스트를 FFrameContext에 전달 (Collect 단계에서 LOD 인라인 갱신용)
-	FLODUpdateContext PrepareLODContext();
+	FLODUpdateContext PrepareLODContext(const UCameraComponent* Camera = nullptr);
 
 	void InitWorld();      // Set up the world before gameplay begins
 	void BeginPlay();      // Triggers BeginPlay on all actors
@@ -59,8 +83,30 @@ public:
 	bool HasBegunPlay() const { return bHasBegunPlay; }
 
 	// Active Camera — EditorViewportClient 또는 PlayerController가 세팅
-	void SetActiveCamera(UCameraComponent* InCamera) { ActiveCamera = InCamera; }
-	UCameraComponent* GetActiveCamera() const { return ActiveCamera; }
+	void SetActiveCamera(UCameraComponent* InCamera);
+	UCameraComponent* GetActiveCamera() const;
+
+	// ViewCamera — CameraManager가 매 프레임 결정한 렌더 카메라
+	void SetViewCamera(UCameraComponent* InCamera);
+	UCameraComponent* GetViewCamera() const;
+
+	// Gameplay camera / possession helpers. PIE와 Standalone 모두 같은 규칙을 쓰기 위한 공통 경로.
+	bool IsActorInWorld(const AActor* Actor) const;
+	bool IsComponentInWorld(const UActorComponent* Component) const;
+	void CleanupActorReferences(AActor* Actor);
+	void CleanupComponentReferences(UActorComponent* Component);
+	UCameraComponent* FindFirstCamera() const;
+	APawn* FindFirstPawn() const;
+	AActor* FindFirstPossessableActor() const;
+	AActor* FindActorByUUIDInWorld(uint32 ActorUUID) const;
+	APlayerController* FindOrCreatePlayerController();
+	void AutoWirePlayerController(APlayerController* PreferredController = nullptr);
+	UCameraComponent* ResolveGameplayViewCamera(APlayerController* PreferredController = nullptr) const;
+
+	// PlayerController 관리
+	APlayerController* CreatePlayerController();
+	APlayerController* GetPlayerController(int32 Index = 0) const;
+	const TArray<APlayerController*>& GetPlayerControllers() const { return PlayerControllers; }
 
 	// FScene — 렌더 프록시 관리자
 	FScene& GetScene() { return Scene; }
@@ -72,16 +118,24 @@ public:
 	void RemoveActorToOctree(AActor* actor);
 	void UpdateActorInOctree(AActor* actor);
 
+	void UpdateCollision();
+	bool HasBlockingOverlapForActor(AActor* MovingActor, FHitResult* OutHit = nullptr);
+	void ApplyCollisionDebugVisualization();
+	void UpdatePlayerCameraManagers(float DeltaTime);
+
 private:
 	//TArray<AActor*> Actors;
 	ULevel* PersistentLevel;
 
 	UCameraComponent* ActiveCamera = nullptr;
+	UCameraComponent* ViewCamera = nullptr;
 	UCameraComponent* LastLODUpdateCamera = nullptr;
+	TArray<APlayerController*> PlayerControllers;
 	EWorldType WorldType = EWorldType::Editor;
 	bool bHasBegunPlay = false;
 	bool bHasLastFullLODUpdateCameraPos = false;
 	mutable FWorldPrimitivePickingBVH WorldPrimitivePickingBVH;
+	mutable FWorldCollisionSystem WorldCollisionSystem{this};
 	int32 DeferredPickingBVHUpdateDepth = 0;
 	bool bDeferredPickingBVHDirty = false;
 	uint32 VisibleProxyBuildFrame = 0;
@@ -100,4 +154,16 @@ inline T* UWorld::SpawnActor()
 	T* Actor = UObjectManager::Get().CreateObject<T>(PersistentLevel);
 	AddActor(Actor); // BeginPlay 트리거는 AddActor 내부에서 bHasBegunPlay 가드로 처리
 	return Actor;
+}
+
+template<typename T>
+inline T* UWorld::AcquireActor(const FVector& Location, const FRotator& Rotation)
+{
+	return FObjectPoolSystem::Get().AcquireActor<T>(this, T::StaticClass(), Location, Rotation);
+}
+
+template<typename T>
+inline T* UWorld::AcquireActor(UClass* Class, const FVector& Location, const FRotator& Rotation)
+{
+	return FObjectPoolSystem::Get().AcquireActor<T>(this, Class, Location, Rotation);
 }

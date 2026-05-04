@@ -1,12 +1,18 @@
-﻿#include "Editor/UI/EditorPropertyWidget.h"
+#include "Editor/UI/EditorPropertyWidget.h"
 
 #include "Editor/EditorEngine.h"
+#include "Editor/UI/EditorFileUtils.h"
+#include "Serialization/PrefabSaveManager.h"
 
+#include <filesystem>
 #include "ImGui/imgui.h"
 #include "Component/ActorComponent.h"
+#include "Component/ControllerInputComponent.h"
+#include "Component/PawnOrientationComponent.h"
 #include "Component/BillboardComponent.h"
 #include "Component/MeshComponent.h"
 #include "Component/Movement/MovementComponent.h"
+#include "Component/Movement/PawnMovementComponent.h"
 #include "Component/GizmoComponent.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/StaticMeshComponent.h"
@@ -15,6 +21,11 @@
 #include "Component/Light/LightComponentBase.h"
 #include "Component/DecalComponent.h"
 #include "Component/HeightFogComponent.h"
+#include "Component/Collision/ShapeComponent.h"
+#include "Component/CameraComponent.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/World.h"
 #include "Core/PropertyTypes.h"
 #include "Core/ClassTypes.h"
 #include "Resource/ResourceManager.h"
@@ -31,6 +42,7 @@
 #include <array>
 #include <cfloat>
 #include <cstring>
+#include <cwctype>
 #include <filesystem>
 
 #include "Materials/MaterialManager.h"
@@ -88,6 +100,51 @@ namespace
 
 		return nullptr;
 	}
+
+	bool IsPathInsideDirectory(const std::filesystem::path& AbsolutePath, const std::filesystem::path& Directory)
+	{
+		const std::filesystem::path RelativePath = AbsolutePath.lexically_relative(Directory);
+		if (RelativePath.empty() || RelativePath.is_absolute())
+		{
+			return false;
+		}
+
+		for (const std::filesystem::path& Part : RelativePath)
+		{
+			if (Part == L"..")
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	FString MakeLuaScriptPropertyPath(const std::filesystem::path& AbsolutePath)
+	{
+		const std::filesystem::path ScriptDir = std::filesystem::path(FPaths::ScriptDir()).lexically_normal();
+		const std::filesystem::path RootDir = std::filesystem::path(FPaths::RootDir()).lexically_normal();
+
+		if (IsPathInsideDirectory(AbsolutePath, ScriptDir))
+		{
+			return FPaths::ToUtf8(AbsolutePath.lexically_relative(ScriptDir).generic_wstring());
+		}
+
+		if (IsPathInsideDirectory(AbsolutePath, RootDir))
+		{
+			return FPaths::ToUtf8(AbsolutePath.lexically_relative(RootDir).generic_wstring());
+		}
+
+		return FPaths::ToUtf8(AbsolutePath.generic_wstring());
+	}
+
+	bool IsLuaScriptFile(const std::filesystem::path& Path)
+	{
+		std::wstring Extension = Path.extension().wstring();
+		std::transform(Extension.begin(), Extension.end(), Extension.begin(),
+			[](wchar_t Ch) { return static_cast<wchar_t>(std::towlower(Ch)); });
+		return Extension == L".lua";
+	}
 }
 
 static FString RemoveExtension(const FString& Path)
@@ -135,6 +192,34 @@ FString FEditorPropertyWidget::OpenObjFileDialog()
 	}
 
 	return FString();
+}
+
+FString FEditorPropertyWidget::OpenLuaScriptFileDialog()
+{
+	const std::wstring ScriptDirectory = FPaths::ScriptDir();
+	FPaths::CreateDir(ScriptDirectory);
+
+	FEditorFileDialogOptions Options;
+	Options.Filter = L"Lua Scripts (*.lua)\0*.lua\0";
+	Options.Title = L"Select Lua Script";
+	Options.DefaultExtension = L"lua";
+	Options.InitialDirectory = ScriptDirectory.c_str();
+	Options.bFileMustExist = true;
+	Options.bPathMustExist = true;
+
+	const FString SelectedPath = FEditorFileUtils::OpenFileDialog(Options);
+	if (SelectedPath.empty())
+	{
+		return FString();
+	}
+
+	const std::filesystem::path AbsolutePath = std::filesystem::path(FPaths::ToWide(SelectedPath)).lexically_normal();
+	if (!IsLuaScriptFile(AbsolutePath))
+	{
+		return FString();
+	}
+
+	return MakeLuaScriptPropertyPath(AbsolutePath);
 }
 
 void FEditorPropertyWidget::Render(float DeltaTime)
@@ -238,6 +323,38 @@ void FEditorPropertyWidget::Render(float DeltaTime)
 			LastSelectedActor = nullptr;
 			ImGui::End();
 			return;
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("Save Prefab"))
+		{
+			std::wstring PrefabDir = FPaths::PrefabDir();
+			FPaths::CreateDir(PrefabDir);
+
+			FString DefaultName = PrimaryActor->GetFName().ToString();
+			if (DefaultName.empty()) DefaultName = PrimaryActor->GetClass()->GetName();
+
+			std::wstring WideDefaultName = FPaths::ToWide(DefaultName);
+
+			FEditorFileDialogOptions Options;
+			Options.Title = L"Save Prefab As...";
+			Options.Filter = L"Prefab Files (*.Prefab)\0*.Prefab\0All Files (*.*)\0*.*\0";
+			Options.DefaultExtension = L"Prefab";
+			Options.InitialDirectory = PrefabDir.c_str();
+			Options.DefaultFileName = WideDefaultName.c_str();
+			Options.bPromptOverwrite = true;
+			Options.bReturnRelativeToProjectRoot = false;
+
+			FString SavePath = FEditorFileUtils::SaveFileDialog(Options);
+			if (!SavePath.empty())
+			{
+				// Save to the exact path picked in the dialog, then refresh the content browser
+				// so newly-created prefabs appear without typing "cb refresh".
+				if (FPrefabSaveManager::SaveActorAsPrefab(PrimaryActor, SavePath) && EditorEngine)
+				{
+					EditorEngine->RefreshContentBrowser();
+				}
+			}
 		}
 	}
 
@@ -392,6 +509,213 @@ void FEditorPropertyWidget::RenderActorProperties(AActor* PrimaryActor, const TA
 		PrimaryActor->SetVisible(bVisible);
 	}
 
+	// PlayerController — Pawn Possess / Active Camera 연결
+	if (APlayerController* PC = Cast<APlayerController>(PrimaryActor))
+	{
+		SEPARATOR();
+		ImGui::Text("PlayerController");
+		ImGui::Separator();
+
+		ImGui::TextDisabled("Auto: pawn-owned view camera = pawn, separated view camera = camera.");
+
+		AActor* CurActor = PC->GetPossessedActor();
+		if (CurActor)
+		{
+			const FString& N = CurActor->GetFName().ToString();
+			ImGui::Text("Possessed: %s", N.empty() ? "Actor" : N.c_str());
+			ImGui::SameLine();
+			if (ImGui::SmallButton("UnPossess"))
+				PC->UnPossess();
+		}
+		else
+		{
+			ImGui::TextDisabled("Possessed: (none)");
+		}
+
+		if (ImGui::Button("Possess Actor..."))
+			ImGui::OpenPopup("##PawnPicker");
+		if (ImGui::BeginPopup("##PawnPicker"))
+		{
+			UWorld* World = EditorEngine->GetWorld();
+			bool bAny = false;
+			for (AActor* A : World->GetActors())
+			{
+				bool bPossessable = Cast<APawn>(A) != nullptr;
+				if (!bPossessable)
+				{
+					for (UActorComponent* Comp : A->GetComponents())
+					{
+						if (Cast<UPawnMovementComponent>(Comp)) { bPossessable = true; break; }
+					}
+				}
+				if (!bPossessable) continue;
+				bAny = true;
+				const FString& N = A->GetFName().ToString();
+				if (ImGui::MenuItem(N.empty() ? "Actor" : N.c_str()))
+				{
+					PC->Possess(A);
+					ImGui::CloseCurrentPopup();
+				}
+			}
+			if (!bAny) ImGui::TextDisabled("No possessable actors in world");
+			ImGui::EndPopup();
+		}
+
+		ImGui::Spacing();
+		ImGui::Text("Camera");
+		ImGui::TextDisabled("Possessing an actor with a CameraComponent selects that camera automatically.");
+
+		if (UCameraComponent* ActiveCamera = PC->GetActiveCamera())
+		{
+			FString OwnerName = ActiveCamera->GetOwner() ? ActiveCamera->GetOwner()->GetFName().ToString() : FString();
+			FString CameraName = ActiveCamera->GetFName().ToString();
+			FString Label = OwnerName.empty() ? FString("Actor") : OwnerName;
+			Label += ".";
+			Label += CameraName.empty() ? ActiveCamera->GetClass()->GetName() : CameraName;
+			ImGui::Text("Player Camera: %s", Label.c_str());
+		}
+		else
+		{
+			ImGui::TextDisabled("Player Camera: (none)");
+		}
+
+		if (ImGui::Button("Choose Player Camera..."))
+		{
+			ImGui::OpenPopup("##ControllerCameraPicker");
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Clear Player Camera"))
+		{
+			PC->ClearActiveCamera();
+		}
+
+		if (ImGui::BeginPopup("##ControllerCameraPicker"))
+		{
+			UWorld* World = EditorEngine->GetWorld();
+			bool bAnyCamera = false;
+			if (World)
+			{
+				for (AActor* CandidateActor : World->GetActors())
+				{
+					if (!CandidateActor)
+					{
+						continue;
+					}
+
+					const FString ActorName = CandidateActor->GetFName().ToString();
+					for (UActorComponent* CandidateComponent : CandidateActor->GetComponents())
+					{
+						if (!CandidateComponent || CandidateComponent->IsHiddenInComponentTree())
+						{
+							continue;
+						}
+
+						UCameraComponent* Camera = Cast<UCameraComponent>(CandidateComponent);
+						if (!Camera)
+						{
+							continue;
+						}
+
+						bAnyCamera = true;
+						FString CameraName = Camera->GetFName().ToString();
+						FString Label = ActorName.empty() ? "Actor" : ActorName;
+						Label += ".";
+						Label += CameraName.empty() ? Camera->GetClass()->GetName() : CameraName;
+
+						if (ImGui::MenuItem(Label.c_str()))
+						{
+							PC->SetActiveCamera(Camera);
+							PC->GetCameraManager().SnapToActiveCamera();
+							if (UCameraComponent* ViewCamera = PC->ResolveViewCamera())
+							{
+								World->SetViewCamera(ViewCamera);
+								World->SetActiveCamera(ViewCamera);
+							}
+							ImGui::CloseCurrentPopup();
+						}
+					}
+				}
+			}
+			if (!bAnyCamera)
+			{
+				ImGui::TextDisabled("No CameraComponent in world");
+			}
+			ImGui::EndPopup();
+		}
+	}
+
+	// Pawn — 현재 Controller 표시
+	else if (APawn* Pawn = Cast<APawn>(PrimaryActor))
+	{
+		SEPARATOR();
+		ImGui::Text("Pawn");
+		ImGui::Separator();
+		APlayerController* Ctrl = Pawn->GetController();
+		if (Ctrl)
+		{
+			const FString& N = Ctrl->GetFName().ToString();
+			ImGui::Text("Controller: %s", N.empty() ? "PlayerController" : N.c_str());
+			ImGui::SameLine();
+			if (ImGui::SmallButton("UnPossess##Pawn"))
+			{
+				Ctrl->UnPossess();
+			}
+		}
+		else
+		{
+			ImGui::TextDisabled("Controller: (none)");
+		}
+
+		if (ImGui::Button("Possessed By Controller..."))
+		{
+			ImGui::OpenPopup("##ControllerPickerForPawn");
+		}
+		if (ImGui::BeginPopup("##ControllerPickerForPawn"))
+		{
+			UWorld* World = EditorEngine->GetWorld();
+			bool bAny = false;
+			if (World)
+			{
+				for (APlayerController* Controller : World->GetPlayerControllers())
+				{
+					if (!Controller) continue;
+					bAny = true;
+					const FString& N = Controller->GetFName().ToString();
+					if (ImGui::MenuItem(N.empty() ? "PlayerController" : N.c_str()))
+					{
+						Controller->Possess(Pawn);
+						ImGui::CloseCurrentPopup();
+					}
+				}
+			}
+			if (!bAny) ImGui::TextDisabled("No PlayerControllers in world");
+			ImGui::EndPopup();
+		}
+
+		if (ImGui::Button("Create Controller And Possess"))
+		{
+			if (UWorld* World = EditorEngine->GetWorld())
+			{
+				if (APlayerController* Controller = World->FindOrCreatePlayerController())
+				{
+					Controller->Possess(Pawn);
+				}
+			}
+		}
+
+		if (ImGui::Button("Use This Pawn Camera"))
+		{
+			if (UWorld* World = EditorEngine->GetWorld())
+			{
+				if (APlayerController* Controller = World->FindOrCreatePlayerController())
+				{
+					Controller->Possess(Pawn);
+					Controller->SetActiveCamera(Pawn->FindPawnCamera());
+				}
+			}
+		}
+	}
+
 }
 
 void FEditorPropertyWidget::RenderComponentTree(AActor* Actor)
@@ -424,11 +748,11 @@ void FEditorPropertyWidget::RenderComponentTree(AActor* Actor)
 	TArray<FComponentClassGroup> ComponentGroups;
 	AddComponentClassGroup(ComponentGroups, "Light", ULightComponentBase::StaticClass());
 	AddComponentClassGroup(ComponentGroups, "Movement", UMovementComponent::StaticClass());
-	//AddComponentClassGroup(ComponentGroups, "UBillboardComponent", UBillboardComponent::StaticClass());
-	//AddComponentClassGroup(ComponentGroups, "UMeshComponent", UMeshComponent::StaticClass());
+	AddComponentClassGroup(ComponentGroups, "Input", UControllerInputComponent::StaticClass());
+	AddComponentClassGroup(ComponentGroups, "Orientation", UPawnOrientationComponent::StaticClass());
+	AddComponentClassGroup(ComponentGroups, "Collision", UShapeComponent::StaticClass());
+	AddComponentClassGroup(ComponentGroups, "Camera", UCameraComponent::StaticClass());
 	AddComponentClassGroup(ComponentGroups, "Primitive", UPrimitiveComponent::StaticClass());
-	//AddComponentClassGroup(ComponentGroups, "USceneComponent", USceneComponent::StaticClass());
-	//AddComponentClassGroup(ComponentGroups, "UActorComponent", UActorComponent::StaticClass());
 
 	TArray<UClass*> OtherClasses;
 	for (UClass* Cls : ComponentClasses)
@@ -586,10 +910,19 @@ void FEditorPropertyWidget::RenderComponentTree(AActor* Actor)
 
 		if (SelectedClass->IsA(USceneComponent::StaticClass()))
 		{
-			if (SelectedComponent != nullptr && SelectedComponent->GetClass()->IsA(USceneComponent::StaticClass()))
-				Cast<USceneComponent>(Comp)->AttachToComponent(Cast<USceneComponent>(SelectedComponent));
-			else
-				Cast<USceneComponent>(Comp)->AttachToComponent(Root);
+			USceneComponent* SceneComp = Cast<USceneComponent>(Comp);
+			if (!Root && SceneComp)
+			{
+				Actor->SetRootComponent(SceneComp);
+				Root = SceneComp;
+			}
+			else if (SceneComp)
+			{
+				if (SelectedComponent != nullptr && SelectedComponent->GetClass()->IsA(USceneComponent::StaticClass()))
+					SceneComp->AttachToComponent(Cast<USceneComponent>(SelectedComponent));
+				else if (Root)
+					SceneComp->AttachToComponent(Root);
+			}
 
 			// 빌보드가 필요한 컴포넌트들에 대해 빌보드 생성 보장
 			if (Comp->IsA<ULightComponentBase>())
@@ -605,6 +938,9 @@ void FEditorPropertyWidget::RenderComponentTree(AActor* Actor)
 				Cast<UHeightFogComponent>(Comp)->EnsureEditorBillboard();
 			}
 		}
+
+		SelectedComponent = Comp;
+		bActorSelected = false;
 	}
 
 	ImGui::Separator();
@@ -753,6 +1089,33 @@ void FEditorPropertyWidget::RenderComponentProperties(AActor* Actor, const TArra
 
 	ImGui::Separator();
 
+	// CameraComponent — player view selection is explicit; follow target is handled by the camera settings below.
+	if (UCameraComponent* Cam = Cast<UCameraComponent>(SelectedComponent))
+	{
+		UWorld* World = EditorEngine->GetWorld();
+		if (World)
+		{
+			APlayerController* Controller = World->GetPlayerController(0);
+			const bool bIsPlayerCamera = Controller && Controller->GetActiveCamera() == Cam;
+			if (bIsPlayerCamera)
+			{
+				ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Player Camera");
+			}
+			else
+			{
+				ImGui::TextDisabled("Not used as the player camera");
+			}
+
+			if (ImGui::Button("Use as Player Camera"))
+			{
+				Cam->SetActiveCamera();
+			}
+
+			ImGui::TextDisabled("Follow Target below changes who this camera follows. It is visible once this camera is the player camera.");
+		}
+		ImGui::Separator();
+	}
+
 	// PropertyDescriptor 기반 자동 위젯 렌더링
 	TArray<FPropertyDescriptor> Props;
 	SelectedComponent->GetEditableProperties(Props);
@@ -865,6 +1228,7 @@ void FEditorPropertyWidget::PropagatePropertyChange(const FString& PropName, con
 				case EPropertyType::MaterialSlot:   *static_cast<FMaterialSlot*>(DstProp.ValuePtr) = *static_cast<FMaterialSlot*>(SrcProp->ValuePtr); break;
 				case EPropertyType::Enum:           Size = sizeof(int32); break;
 				case EPropertyType::Vec3Array:      *static_cast<TArray<FVector>*>(DstProp.ValuePtr) = *static_cast<TArray<FVector>*>(SrcProp->ValuePtr); break;
+				case EPropertyType::ActorRef:       Size = sizeof(uint32); break;
 				}
 				if (Size > 0)
 					memcpy(DstProp.ValuePtr, SrcProp->ValuePtr, Size);
@@ -959,12 +1323,65 @@ bool FEditorPropertyWidget::RenderPropertyWidget(TArray<FPropertyDescriptor>& Pr
 	case EPropertyType::String:
 	{
 		FString* Val = static_cast<FString*>(Prop.ValuePtr);
-		char Buf[256];
-		strncpy_s(Buf, sizeof(Buf), Val->c_str(), _TRUNCATE);
-		if (ImGui::InputText(Prop.Name.c_str(), Buf, sizeof(Buf)))
+		if (Prop.Name == "ScriptPath")
 		{
-			*Val = Buf;
-			bChanged = true;
+			ImGui::Text("%s", Prop.Name.c_str());
+			ImGui::SameLine(120);
+
+			const float ButtonWidth = ImGui::CalcTextSize("...").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+			const float ClearWidth = ImGui::CalcTextSize("Clear").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+			const float Spacing = ImGui::GetStyle().ItemSpacing.x;
+			ImGui::SetNextItemWidth(-(ButtonWidth + ClearWidth + Spacing * 2.0f));
+
+			char Buf[512];
+			strncpy_s(Buf, sizeof(Buf), Val->c_str(), _TRUNCATE);
+			ImGui::InputText("##ScriptPath", Buf, sizeof(Buf), ImGuiInputTextFlags_ReadOnly);
+			if (ImGui::BeginDragDropTarget())
+			{
+				if (const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload("LuaScriptContentItem"))
+				{
+					const FContentItem* Item = reinterpret_cast<const FContentItem*>(Payload->Data);
+					const std::filesystem::path AbsPath = std::filesystem::path(Item->Path).lexically_normal();
+					if (IsLuaScriptFile(AbsPath))
+					{
+						*Val = MakeLuaScriptPropertyPath(AbsPath);
+						bChanged = true;
+					}
+				}
+				ImGui::EndDragDropTarget();
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button("..."))
+			{
+				FString LuaPath = OpenLuaScriptFileDialog();
+				if (!LuaPath.empty())
+				{
+					*Val = LuaPath;
+					bChanged = true;
+				}
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("Select .lua file");
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button("Clear"))
+			{
+				Val->clear();
+				bChanged = true;
+			}
+		}
+		else
+		{
+			char Buf[256];
+			strncpy_s(Buf, sizeof(Buf), Val->c_str(), _TRUNCATE);
+			if (ImGui::InputText(Prop.Name.c_str(), Buf, sizeof(Buf)))
+			{
+				*Val = Buf;
+				bChanged = true;
+			}
 		}
 		break;
 	}
@@ -1249,6 +1666,59 @@ bool FEditorPropertyWidget::RenderPropertyWidget(TArray<FPropertyDescriptor>& Pr
 		{
 			Arr->push_back(FVector(0.0f, 0.0f, 0.0f));
 			bChanged = true;
+		}
+		break;
+	}
+	case EPropertyType::ActorRef:
+	{
+		uint32* ActorUUID = static_cast<uint32*>(Prop.ValuePtr);
+		UWorld* World = EditorEngine ? EditorEngine->GetWorld() : nullptr;
+		FString Preview = "None";
+		if (World && ActorUUID && *ActorUUID != 0)
+		{
+			if (AActor* Actor = World->FindActorByUUIDInWorld(*ActorUUID))
+			{
+				Preview = Actor->GetFName().ToString();
+				if (Preview.empty())
+				{
+					Preview = Actor->GetClass()->GetName();
+				}
+			}
+			else
+			{
+				Preview = "Missing Actor";
+			}
+		}
+
+		if (ImGui::BeginCombo(Prop.Name.c_str(), Preview.c_str()))
+		{
+			const bool bSelectedNone = (!ActorUUID || *ActorUUID == 0);
+			if (ImGui::Selectable("None", bSelectedNone))
+			{
+				if (ActorUUID) *ActorUUID = 0;
+				bChanged = true;
+			}
+
+			if (World)
+			{
+				for (AActor* Actor : World->GetActors())
+				{
+					if (!Actor) continue;
+					FString Label = Actor->GetFName().ToString();
+					if (Label.empty()) Label = Actor->GetClass()->GetName();
+					Label += " (";
+					Label += Actor->GetClass()->GetName();
+					Label += ")";
+					const bool bSelected = ActorUUID && *ActorUUID == Actor->GetUUID();
+					if (ImGui::Selectable(Label.c_str(), bSelected))
+					{
+						if (ActorUUID) *ActorUUID = Actor->GetUUID();
+						bChanged = true;
+					}
+					if (bSelected) ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
 		}
 		break;
 	}

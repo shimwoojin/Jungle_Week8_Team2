@@ -1,8 +1,20 @@
-﻿#pragma once
+#pragma once
 
 #include "Component/ActorComponent.h"
+#include "Math/Vector.h"
 
 class USceneComponent;
+struct FHitResult;
+
+struct FControllerMovementInput
+{
+	FVector LocalInput = FVector::ZeroVector;      // X Forward, Y Right, Z Up
+	FVector WorldDirection = FVector::ZeroVector; // Normalized world movement direction
+	FVector WorldDelta = FVector::ZeroVector;     // Immediate movement delta for simple movement components
+	float DeltaTime = 0.0f;
+	float MoveSpeed = 0.0f;
+	float SpeedMultiplier = 1.0f;
+};
 
 //TODO : 해당 컴포넌트 베이스 역할을 하고 고유의 기능은 없기에 오브젝트에 부여할 수 없도록 바꿔야 합니다!
 
@@ -34,12 +46,33 @@ public:
 	bool ResolveUpdatedComponent();
 	FString BuildUpdatedComponentPath(const USceneComponent* TargetComponent) const;
 	void ClearUpdatedComponentIfMatches(const USceneComponent* RemovedComponent);
+	virtual bool CanReceiveControllerInput() const { return bReceiveControllerInput; }
+	void RecordControllerMovementInput(const FControllerMovementInput& Input);
+	const FVector& GetLastControllerWorldDirection() const { return LastControllerWorldDirection; }
+	const FVector& GetLastMovementInput() const { return LastControllerWorldDirection; }
+	const FVector& GetLastControllerWorldDelta() const { return LastControllerWorldDelta; }
+	float GetLastControllerInputTime() const { return LastControllerInputTime; }
+	virtual const FVector& GetVelocity() const { return MovementVelocity; }
+	virtual FVector GetMovementVelocity() const { return GetVelocity(); }
+	bool HasMovementInput() const { return !LastControllerWorldDirection.IsNearlyZero(); }
+	bool IsMoving() const { return !GetVelocity().IsNearlyZero(); }
+	virtual bool ApplyControllerMovementInput(const FControllerMovementInput& Input);
+	int32 GetControllerInputPriority() const { return ControllerInputPriority; }
 
 protected:
+	bool SafeMoveUpdatedComponent(const FVector& Delta, FHitResult* OutHit = nullptr);
+	bool SafeMoveUpdatedComponentPreserveAxes(const FVector& Delta, FVector* OutAppliedDelta = nullptr, FHitResult* OutHit = nullptr);
 	void TryAutoRegisterUpdatedComponent();
 	USceneComponent* FindUpdatedComponentByPath(const FString& InPath) const;
 
 	USceneComponent* UpdatedComponent = nullptr; // 움직일 대상
 	bool bAutoRegisterUpdatedComponent = true;
 	FString UpdatedComponentPath;
+	bool bReceiveControllerInput = false;
+	int32 ControllerInputPriority = 0;
+
+	FVector LastControllerWorldDirection = FVector::ZeroVector;
+	FVector LastControllerWorldDelta = FVector::ZeroVector;
+	float LastControllerInputTime = 0.0f;
+	FVector MovementVelocity = FVector::ZeroVector;
 };

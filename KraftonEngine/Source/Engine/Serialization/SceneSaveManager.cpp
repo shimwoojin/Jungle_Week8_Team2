@@ -8,6 +8,7 @@
 #include "SimpleJSON/json.hpp"
 #include "GameFramework/World.h"
 #include "GameFramework/AActor.h"
+#include "GameFramework/PlayerController.h"
 #include "Component/SceneComponent.h"
 #include "Component/ActorComponent.h"
 #include "Component/StaticMeshComponent.h"
@@ -15,6 +16,8 @@
 #include "Component/DecalComponent.h"
 #include "Component/HeightFogComponent.h"
 #include "Component/Light/LightComponentBase.h"
+#include "Component/ControllerInputComponent.h"
+#include "Component/ComponentReferenceUtils.h"
 #include "GameFramework/StaticMeshActor.h"
 #include "Object/Object.h"
 #include "Object/ObjectFactory.h"
@@ -46,6 +49,84 @@ static FVector ReadVec3(json::JSON& Arr)
 	return out;
 }
 
+static json::JSON WriteRotatorJSON(const FRotator& R)
+{
+	json::JSON arr = json::Array();
+	arr.append(static_cast<double>(R.Pitch));
+	arr.append(static_cast<double>(R.Yaw));
+	arr.append(static_cast<double>(R.Roll));
+	return arr;
+}
+
+static FRotator ReadRotatorJSON(json::JSON& Arr)
+{
+	FRotator R;
+	if (Arr.JSONType() != json::JSON::Class::Array)
+	{
+		return R;
+	}
+	R.Pitch = static_cast<float>(Arr[0].ToFloat());
+	R.Yaw = static_cast<float>(Arr[1].ToFloat());
+	R.Roll = static_cast<float>(Arr[2].ToFloat());
+	return R;
+}
+
+static void SerializePlayerControllerState(json::JSON& ActorJSON, APlayerController* Controller)
+{
+	if (!Controller)
+	{
+		return;
+	}
+
+	json::JSON PC = json::Object();
+	PC["ControlRotation"] = WriteRotatorJSON(Controller->GetControlRotation());
+	if (AActor* Possessed = Controller->GetPossessedActor())
+	{
+		PC["PossessedActorUUID"] = static_cast<int>(Possessed->GetUUID());
+	}
+	if (UCameraComponent* Camera = Controller->GetActiveCamera())
+	{
+		if (AActor* Owner = Camera->GetOwner())
+		{
+			PC["ActiveCameraOwnerUUID"] = static_cast<int>(Owner->GetUUID());
+			PC["ActiveCameraComponentPath"] = ComponentReferenceUtils::MakeComponentPath(Camera);
+		}
+	}
+	ActorJSON["PlayerController"] = PC;
+}
+
+static void RestorePlayerControllerState(UWorld* World, APlayerController* Controller, json::JSON& ActorJSON)
+{
+	if (!World || !Controller || !ActorJSON.hasKey("PlayerController"))
+	{
+		return;
+	}
+
+	json::JSON& PC = ActorJSON["PlayerController"];
+	if (PC.hasKey("ControlRotation"))
+	{
+		Controller->SetControlRotation(ReadRotatorJSON(PC["ControlRotation"]));
+	}
+	if (PC.hasKey("PossessedActorUUID"))
+	{
+		const uint32 UUID = static_cast<uint32>(PC["PossessedActorUUID"].ToInt());
+		if (AActor* Possessed = World->FindActorByUUIDInWorld(UUID))
+		{
+			Controller->Possess(Possessed);
+		}
+	}
+	if (PC.hasKey("ActiveCameraOwnerUUID") && PC.hasKey("ActiveCameraComponentPath"))
+	{
+		const uint32 OwnerUUID = static_cast<uint32>(PC["ActiveCameraOwnerUUID"].ToInt());
+		AActor* Owner = World->FindActorByUUIDInWorld(OwnerUUID);
+		const FString Path = PC["ActiveCameraComponentPath"].ToString();
+		if (UCameraComponent* Camera = Cast<UCameraComponent>(ComponentReferenceUtils::ResolveComponentPath(Owner, Path)))
+		{
+			Controller->SetActiveCamera(Camera);
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 
 namespace SceneKeys
@@ -63,6 +144,31 @@ namespace SceneKeys
 	static constexpr const char* Properties = "Properties";
 	static constexpr const char* Children = "Children";
 	static constexpr const char* HiddenInComponentTree = "bHiddenInComponentTree";
+	static constexpr const char* EditorOnlyComponent = "bEditorOnly";
+}
+
+static UActorComponent* FindReusableNonSceneComponent(AActor* Owner, const string& ClassName, TSet<UActorComponent*>& UsedComponents)
+{
+	if (!Owner)
+	{
+		return nullptr;
+	}
+
+	for (UActorComponent* Component : Owner->GetComponents())
+	{
+		if (!Component || Component->IsA<USceneComponent>() || UsedComponents.count(Component) > 0)
+		{
+			continue;
+		}
+
+		if (Component->GetClass() && ClassName == Component->GetClass()->GetName())
+		{
+			UsedComponents.insert(Component);
+			return Component;
+		}
+	}
+
+	return nullptr;
 }
 
 static void SerializeComponentEditorMetadata(json::JSON& Node, const UActorComponent* Comp)
@@ -76,6 +182,11 @@ static void SerializeComponentEditorMetadata(json::JSON& Node, const UActorCompo
 	{
 		Node[SceneKeys::HiddenInComponentTree] = true;
 	}
+
+	if (Comp->IsEditorOnlyComponent())
+	{
+		Node[SceneKeys::EditorOnlyComponent] = true;
+	}
 }
 
 static void DeserializeComponentEditorMetadata(UActorComponent* Comp, json::JSON& Node)
@@ -88,6 +199,11 @@ static void DeserializeComponentEditorMetadata(UActorComponent* Comp, json::JSON
 	if (Node.hasKey(SceneKeys::HiddenInComponentTree))
 	{
 		Comp->SetHiddenInComponentTree(Node[SceneKeys::HiddenInComponentTree].ToBool());
+	}
+
+	if (Node.hasKey(SceneKeys::EditorOnlyComponent))
+	{
+		Comp->SetEditorOnlyComponent(Node[SceneKeys::EditorOnlyComponent].ToBool());
 	}
 }
 
@@ -153,6 +269,35 @@ void FSceneSaveManager::SaveSceneAsJSON(const string& InSceneName, FWorldContext
 	}
 }
 
+bool FSceneSaveManager::SaveWorldToJSONFile(const std::wstring& AbsoluteFilePath, FWorldContext& WorldContext, UCameraComponent* PerspectiveCam)
+{
+	using namespace json;
+
+	if (!WorldContext.World || AbsoluteFilePath.empty())
+	{
+		return false;
+	}
+
+	std::filesystem::path FileDestination(AbsoluteFilePath);
+	if (FileDestination.has_parent_path())
+	{
+		std::filesystem::create_directories(FileDestination.parent_path());
+	}
+
+	JSON Root = SerializeWorld(WorldContext.World, WorldContext, PerspectiveCam);
+	Root[SceneKeys::Version] = 2;
+	Root[SceneKeys::Name] = FPaths::ToUtf8(FileDestination.stem().wstring());
+
+	std::ofstream File(FileDestination, std::ios::binary);
+	if (!File.is_open())
+	{
+		return false;
+	}
+
+	File << Root.dump();
+	return true;
+}
+
 json::JSON FSceneSaveManager::SerializeWorld(UWorld* World, const FWorldContext& Ctx, UCameraComponent* PerspectiveCam)
 {
 	using namespace json;
@@ -167,7 +312,7 @@ json::JSON FSceneSaveManager::SerializeWorld(UWorld* World, const FWorldContext&
 	std::unordered_map<AActor*, string> ActorPrimitiveKey;
 
 	for (AActor* Actor : World->GetActors()) {
-		if (!Actor) continue;
+		if (!Actor || !Actor->IsA<AStaticMeshActor>()) continue;
 
 		for (UActorComponent* Comp : Actor->GetComponents()) {
 			if (!Comp) continue;
@@ -248,6 +393,7 @@ json::JSON FSceneSaveManager::SerializeActor(AActor* Actor)
 	using namespace json;
 	JSON a = json::Object();
 	a[SceneKeys::ClassName] = Actor->GetClass()->GetName();
+	a["ActorUUID"] = static_cast<int>(Actor->GetUUID());
 	a[SceneKeys::Visible] = Actor->IsVisible();
 
 	// RootComponent 트리 직렬화
@@ -268,6 +414,11 @@ json::JSON FSceneSaveManager::SerializeActor(AActor* Actor)
 		NonScene.append(c);
 	}
 	a[SceneKeys::NonSceneComponents] = NonScene;
+
+	if (APlayerController* Controller = Cast<APlayerController>(Actor))
+	{
+		SerializePlayerControllerState(a, Controller);
+	}
 
 	return a;
 }
@@ -290,10 +441,15 @@ json::JSON FSceneSaveManager::SerializeSceneComponentTree(USceneComponent* Comp)
 	return c;
 }
 
+
 json::JSON FSceneSaveManager::SerializeProperties(UActorComponent* Comp)
 {
 	using namespace json;
 	JSON props = json::Object();
+	if (!Comp)
+	{
+		return props;
+	}
 
 	TArray<FPropertyDescriptor> Descriptors;
 	Comp->GetEditableProperties(Descriptors);
@@ -379,6 +535,9 @@ json::JSON FSceneSaveManager::SerializePropertyValue(const FPropertyDescriptor& 
 		return outer;
 	}
 
+	case EPropertyType::ActorRef:
+		return JSON(static_cast<int>(*static_cast<uint32*>(Prop.ValuePtr)));
+
 	default:
 		return JSON();
 	}
@@ -398,8 +557,11 @@ json::JSON FSceneSaveManager::SerializeCamera(UCameraComponent* Cam)
 
 	const FCameraState& S = Cam->GetCameraState();
 	cam["FOV"] = static_cast<double>(S.FOV);
+	cam["AspectRatio"] = static_cast<double>(S.AspectRatio);
 	cam["NearClip"] = static_cast<double>(S.NearZ);
 	cam["FarClip"] = static_cast<double>(S.FarZ);
+	cam["Orthographic"] = S.bIsOrthogonal;
+	cam["OrthoWidth"] = static_cast<double>(S.OrthoWidth);
 
 	return cam;
 }
@@ -479,6 +641,10 @@ void FSceneSaveManager::DeserializeCamera(json::JSON& CameraJSON, FPerspectiveCa
 		if (fov > 3.14159265f) fov *= (3.14159265f / 180.0f);
 		OutCam.FOV = fov;
 	}
+	if (CameraJSON.hasKey("AspectRatio")) {
+		auto& Val = CameraJSON["AspectRatio"];
+		OutCam.AspectRatio = static_cast<float>(Val.JSONType() == JSON::Class::Array ? Val[0].ToFloat() : Val.ToFloat());
+	}
 	if (CameraJSON.hasKey("NearClip")) {
 		auto& Val = CameraJSON["NearClip"];
 		OutCam.NearClip = static_cast<float>(Val.JSONType() == JSON::Class::Array ? Val[0].ToFloat() : Val.ToFloat());
@@ -486,6 +652,13 @@ void FSceneSaveManager::DeserializeCamera(json::JSON& CameraJSON, FPerspectiveCa
 	if (CameraJSON.hasKey("FarClip")) {
 		auto& Val = CameraJSON["FarClip"];
 		OutCam.FarClip = static_cast<float>(Val.JSONType() == JSON::Class::Array ? Val[0].ToFloat() : Val.ToFloat());
+	}
+	if (CameraJSON.hasKey("Orthographic")) {
+		OutCam.bOrthographic = CameraJSON["Orthographic"].ToBool();
+	}
+	if (CameraJSON.hasKey("OrthoWidth")) {
+		auto& Val = CameraJSON["OrthoWidth"];
+		OutCam.OrthoWidth = static_cast<float>(Val.JSONType() == JSON::Class::Array ? Val[0].ToFloat() : Val.ToFloat());
 	}
 	OutCam.bValid = true;
 }
@@ -547,62 +720,24 @@ void FSceneSaveManager::LoadSceneFromJSON(const string& filepath, FWorldContext&
 	if (root.hasKey(SceneKeys::Actors))
 	{
 		for (auto& ActorJSON : root[SceneKeys::Actors].ArrayRange()) {
-			string ActorClass = ActorJSON[SceneKeys::ClassName].ToString();
-			// If this actor references a PrimitiveKey and that primitive already created an actor,
-			// prefer the primitive-created actor and update it instead of creating a duplicate.
-			AActor* Actor = nullptr;
-			if (ActorJSON.hasKey("PrimitiveKey")) {
-				string pk = ActorJSON["PrimitiveKey"].ToString();
-				auto it = CreatedFromPrimitives.find(pk);
-				if (it != CreatedFromPrimitives.end()) {
-					Actor = it->second;
-				}
+			AActor* Actor = DeserializeActor(World, ActorJSON, &CreatedFromPrimitives);
+			if (Actor) {
+				World->RemoveActorToOctree(Actor);
+				World->InsertActorToOctree(Actor);
 			}
+		}
 
-			if (!Actor) {
-				UObject* ActorObj = FObjectFactory::Get().Create(ActorClass, World);
-				if (!ActorObj || !ActorObj->IsA<AActor>()) continue;
-				Actor = static_cast<AActor*>(ActorObj);
-				World->AddActor(Actor);
+		// Restore controller links after every actor/component exists.
+		for (auto& ActorJSON : root[SceneKeys::Actors].ArrayRange()) {
+			if (!ActorJSON.hasKey("ActorUUID"))
+			{
+				continue;
 			}
-
-			if (ActorJSON.hasKey(SceneKeys::Visible)) {
-				Actor->SetVisible(ActorJSON[SceneKeys::Visible].ToBool());
+			AActor* Actor = World->FindActorByUUIDInWorld(static_cast<uint32>(ActorJSON["ActorUUID"].ToInt()));
+			if (APlayerController* Controller = Cast<APlayerController>(Actor))
+			{
+				RestorePlayerControllerState(World, Controller, ActorJSON);
 			}
-
-			// RootComponent 트리 복원
-			if (ActorJSON.hasKey(SceneKeys::RootComponent)) {
-				JSON& RootJSON = ActorJSON[SceneKeys::RootComponent];
-				if (Actor->GetRootComponent()) {
-					// Merge properties into existing root component created by primitives
-					DeserializeSceneComponentIntoExisting(Actor->GetRootComponent(), RootJSON, Actor);
-				}
-				else {
-					USceneComponent* Root = DeserializeSceneComponentTree(RootJSON, Actor);
-					if (Root) Actor->SetRootComponent(Root);
-				}
-			}
-
-			// Non-scene components 복원
-			if (ActorJSON.hasKey(SceneKeys::NonSceneComponents)) {
-				for (auto& CompJSON : ActorJSON[SceneKeys::NonSceneComponents].ArrayRange()) {
-					string CompClass = CompJSON[SceneKeys::ClassName].ToString();
-					UObject* CompObj = FObjectFactory::Get().Create(CompClass, Actor);
-					if (!CompObj || !CompObj->IsA<UActorComponent>()) continue;
-
-					UActorComponent* Comp = static_cast<UActorComponent*>(CompObj);
-					Actor->RegisterComponent(Comp);
-
-					if (CompJSON.hasKey(SceneKeys::Properties)) {
-						JSON& PropsJSON = CompJSON[SceneKeys::Properties];
-						DeserializeProperties(Comp, PropsJSON);
-					}
-					DeserializeComponentEditorMetadata(Comp, CompJSON);
-				}
-			}
-
-			World->RemoveActorToOctree(Actor);
-			World->InsertActorToOctree(Actor);
 		}
 	}
 
@@ -610,6 +745,169 @@ void FSceneSaveManager::LoadSceneFromJSON(const string& filepath, FWorldContext&
 	OutWorldContext.World = World;
 	OutWorldContext.ContextName = ContextName;
 	OutWorldContext.ContextHandle = FName(ContextHandle);
+}
+
+AActor* FSceneSaveManager::DeserializeActor(UWorld* World, json::JSON& ActorJSON, std::unordered_map<string, AActor*>* CreatedFromPrimitives, const FActorDeserializeOptions& Options)
+{
+	using namespace json;
+	string ActorClass = ActorJSON[SceneKeys::ClassName].ToString();
+	AActor* Actor = nullptr;
+
+	if (CreatedFromPrimitives && ActorJSON.hasKey("PrimitiveKey")) {
+		string pk = ActorJSON["PrimitiveKey"].ToString();
+		auto it = CreatedFromPrimitives->find(pk);
+		if (it != CreatedFromPrimitives->end()) {
+			Actor = it->second;
+		}
+	}
+
+	if (!Actor) {
+		UObject* ActorObj = FObjectFactory::Get().Create(ActorClass, World);
+		if (!ActorObj || !ActorObj->IsA<AActor>()) return nullptr;
+		Actor = static_cast<AActor*>(ActorObj);
+		if (Options.bAddToWorld)
+		{
+			World->AddActor(Actor);
+		}
+	}
+
+	if (ActorJSON.hasKey("ActorUUID"))
+	{
+		const uint32 SerializedActorUUID = static_cast<uint32>(ActorJSON["ActorUUID"].ToInt());
+		if (Options.bRestoreActorUUID)
+		{
+			Actor->SetUUID(SerializedActorUUID);
+		}
+		else if (Options.ActorUUIDRemap && SerializedActorUUID != 0)
+		{
+			(*Options.ActorUUIDRemap)[SerializedActorUUID] = Actor->GetUUID();
+		}
+	}
+
+	if (ActorJSON.hasKey(SceneKeys::Visible))
+	{
+		Actor->SetVisible(ActorJSON[SceneKeys::Visible].ToBool());
+	}
+	if (ActorJSON.hasKey(SceneKeys::Visible)) {
+		Actor->SetVisible(ActorJSON[SceneKeys::Visible].ToBool());
+	}
+
+	// RootComponent 트리 복원
+	if (ActorJSON.hasKey(SceneKeys::RootComponent)) {
+		JSON& RootJSON = ActorJSON[SceneKeys::RootComponent];
+		if (Actor->GetRootComponent()) {
+			// Merge properties into existing root component created by primitives
+			DeserializeSceneComponentIntoExisting(Actor->GetRootComponent(), RootJSON, Actor);
+		}
+		else {
+			USceneComponent* Root = DeserializeSceneComponentTree(RootJSON, Actor);
+			if (Root) Actor->SetRootComponent(Root);
+		}
+	}
+
+	// Non-scene components 복원
+	if (ActorJSON.hasKey(SceneKeys::NonSceneComponents)) {
+		for (auto& CompJSON : ActorJSON[SceneKeys::NonSceneComponents].ArrayRange()) {
+			string CompClass = CompJSON[SceneKeys::ClassName].ToString();
+			UObject* CompObj = FObjectFactory::Get().Create(CompClass, Actor);
+			if (!CompObj || !CompObj->IsA<UActorComponent>()) continue;
+
+			UActorComponent* Comp = static_cast<UActorComponent*>(CompObj);
+			Actor->RegisterComponent(Comp);
+
+			if (CompJSON.hasKey(SceneKeys::Properties)) {
+				JSON& PropsJSON = CompJSON[SceneKeys::Properties];
+				DeserializeProperties(Comp, PropsJSON);
+			}
+			DeserializeComponentEditorMetadata(Comp, CompJSON);
+		}
+	}
+
+	if (Options.bInitDefaultComponentsIfMissing && (!Actor->IsA<AStaticMeshActor>() || !Actor->GetRootComponent()))
+	{
+		Actor->InitDefaultComponents();
+	}
+
+	return Actor;
+}
+
+bool FSceneSaveManager::ApplyPrefabDataToActor(AActor* Actor, json::JSON& ActorJSON)
+{
+	using json::JSON;
+
+	if (!Actor)
+	{
+		return false;
+	}
+
+	if (ActorJSON.hasKey(SceneKeys::Visible))
+	{
+		Actor->SetVisible(ActorJSON[SceneKeys::Visible].ToBool());
+	}
+
+	if (ActorJSON.hasKey(SceneKeys::RootComponent))
+	{
+		JSON& RootJSON = ActorJSON[SceneKeys::RootComponent];
+		if (Actor->GetRootComponent())
+		{
+			DeserializeSceneComponentIntoExisting(Actor->GetRootComponent(), RootJSON, Actor);
+		}
+		else
+		{
+			USceneComponent* Root = DeserializeSceneComponentTree(RootJSON, Actor);
+			if (Root)
+			{
+				Actor->SetRootComponent(Root);
+			}
+		}
+	}
+
+	if (ActorJSON.hasKey(SceneKeys::NonSceneComponents))
+	{
+		TSet<UActorComponent*> ReusedComponents;
+		for (auto& CompJSON : ActorJSON[SceneKeys::NonSceneComponents].ArrayRange())
+		{
+			string CompClass = CompJSON[SceneKeys::ClassName].ToString();
+			if (CompClass.empty())
+			{
+				continue;
+			}
+
+			UActorComponent* Comp = FindReusableNonSceneComponent(Actor, CompClass, ReusedComponents);
+			if (!Comp)
+			{
+				UObject* CompObj = FObjectFactory::Get().Create(CompClass, Actor);
+				if (!CompObj || !CompObj->IsA<UActorComponent>())
+				{
+					continue;
+				}
+
+				Comp = static_cast<UActorComponent*>(CompObj);
+				Actor->RegisterComponent(Comp);
+			}
+
+			if (CompJSON.hasKey(SceneKeys::Properties))
+			{
+				JSON& PropsJSON = CompJSON[SceneKeys::Properties];
+				DeserializeProperties(Comp, PropsJSON);
+			}
+			DeserializeComponentEditorMetadata(Comp, CompJSON);
+			EnsureEditorBillboardMetadata(Comp);
+		}
+	}
+
+	if (!Actor->IsA<AStaticMeshActor>() || !Actor->GetRootComponent())
+	{
+		Actor->InitDefaultComponents();
+	}
+
+	if (UWorld* World = Actor->GetWorld())
+	{
+		World->RemoveActorToOctree(Actor);
+		World->InsertActorToOctree(Actor);
+	}
+
+	return true;
 }
 
 USceneComponent* FSceneSaveManager::DeserializeSceneComponentTree(json::JSON& Node, AActor* Owner)
@@ -676,8 +974,11 @@ void FSceneSaveManager::DeserializeSceneComponentIntoExisting(USceneComponent* E
 	EnsureEditorBillboardMetadata(Existing);
 }
 
+
 void FSceneSaveManager::DeserializeProperties(UActorComponent* Comp, json::JSON& PropsJSON)
 {
+	if (!Comp) return;
+
 	TArray<FPropertyDescriptor> Descriptors;
 	Comp->GetEditableProperties(Descriptors);
 
@@ -785,6 +1086,10 @@ void FSceneSaveManager::DeserializePropertyValue(FPropertyDescriptor& Prop, json
 		}
 		break;
 	}
+
+	case EPropertyType::ActorRef:
+		*static_cast<uint32*>(Prop.ValuePtr) = static_cast<uint32>(Value.ToInt());
+		break;
 
 	default:
 		break;

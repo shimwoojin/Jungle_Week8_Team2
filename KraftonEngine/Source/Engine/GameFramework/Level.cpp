@@ -78,7 +78,7 @@ void ULevel::BeginPlay()
 	for (size_t i = 0; i < InitialCount; ++i)
 	{
 		AActor* Actor = Actors[i];
-		if (Actor && !Actor->HasActorBegunPlay())
+		if (Actor && !Actor->HasActorBegunPlay() && !Actor->IsPooledActorInactive())
 		{
 			Actor->BeginPlay();
 		}
@@ -87,20 +87,13 @@ void ULevel::BeginPlay()
 
 void ULevel::EndPlay()
 {
-	for (AActor* Actor : Actors)
+	TArray<AActor*> ActorSnapshot = Actors;
+
+	for (AActor* Actor : ActorSnapshot)
 	{
-		if (Actor)
+		if (Actor && IsAliveObject(Actor))
 		{
 			Actor->EndPlay();
 		}
 	}
-
-	for (AActor* Actor : Actors)
-	{
-		if (Actor)
-		{
-			UObjectManager::Get().DestroyObject(Actor);
-		}
-	}
-	Actors.clear();
 }

@@ -1,4 +1,4 @@
-﻿#include "GameFramework/AActor.h"
+#include "GameFramework/AActor.h"
 #include "Object/ObjectFactory.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/ActorComponent.h"
@@ -9,6 +9,28 @@
 #include "Serialization/Archive.h"
 
 #include <algorithm>
+
+namespace
+{
+	UActorComponent* ResolveOwnedComponent(AActor* Owner, uint32 ComponentUUID)
+	{
+		if (!Owner || ComponentUUID == 0)
+		{
+			return nullptr;
+		}
+
+		UActorComponent* Component = Cast<UActorComponent>(UObjectManager::Get().FindByUUID(ComponentUUID));
+		if (!Component || Component->GetOwner() != Owner)
+		{
+			return nullptr;
+		}
+
+		const TArray<UActorComponent*>& Components = Owner->GetComponents();
+		return std::find(Components.begin(), Components.end(), Component) != Components.end()
+			? Component
+			: nullptr;
+	}
+}
 
 IMPLEMENT_CLASS(AActor, UObject)
 
@@ -52,9 +74,15 @@ UActorComponent* AActor::AddComponentByClass(UClass* Class)
 
 	Comp->SetOwner(this);
 	OwnedComponents.push_back(Comp);
+	if (!RootComponent)
+	{
+		if (USceneComponent* SceneComponent = Cast<USceneComponent>(Comp))
+		{
+			RootComponent = SceneComponent;
+		}
+	}
 	bPrimitiveCacheDirty = true;
 	Comp->CreateRenderState();
-	MarkPickingDirty();
 	return Comp;
 }
 
@@ -67,8 +95,14 @@ void AActor::RegisterComponent(UActorComponent* Comp)
 		Comp->SetOwner(this);
 		Comp->SetOuter(this);
 		OwnedComponents.push_back(Comp);
+		if (!RootComponent)
+		{
+			if (USceneComponent* SceneComponent = Cast<USceneComponent>(Comp))
+			{
+				RootComponent = SceneComponent;
+			}
+		}
 		bPrimitiveCacheDirty = true;
-		MarkPickingDirty();
 		Comp->CreateRenderState();
 	}
 }
@@ -76,6 +110,16 @@ void AActor::RegisterComponent(UActorComponent* Comp)
 void AActor::RemoveComponent(UActorComponent* Component)
 {
 	if (!Component) return;
+
+	if (UWorld* World = GetWorld())
+	{
+		World->CleanupComponentReferences(Component);
+	}
+
+	if (bActorHasBegunPlay)
+	{
+		Component->EndPlay();
+	}
 
 	USceneComponent* RemovedSceneComponent = Cast<USceneComponent>(Component);
 	if (RemovedSceneComponent)
@@ -100,7 +144,6 @@ void AActor::RemoveComponent(UActorComponent* Component)
 	if (it != OwnedComponents.end()) {
 		OwnedComponents.erase(it);
 		bPrimitiveCacheDirty = true;
-		MarkPickingDirty();
 	}
 
 	// RootComponent가 제거되면 nullptr로
@@ -145,6 +188,55 @@ void AActor::SetVisible(bool Visible)
 	}
 }
 
+void AActor::SetActorHiddenInGame(bool bHidden)
+{
+	SetVisible(!bHidden);
+}
+
+void AActor::SetActorEnableCollision(bool bEnabled)
+{
+	if (bActorCollisionEnabled == bEnabled)
+	{
+		return;
+	}
+
+	bActorCollisionEnabled = bEnabled;
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	for (UPrimitiveComponent* Prim : GetPrimitiveComponents())
+	{
+		if (!Prim || Prim->GetCollisionShapeType() == ECollisionShapeType::None)
+		{
+			continue;
+		}
+
+		if (bActorCollisionEnabled)
+		{
+			World->InsertWorldCollisionBVH(Prim);
+		}
+		else
+		{
+			World->RemoveWorldCollisionBVH(Prim);
+		}
+	}
+}
+
+void AActor::SetActorTickEnabled(bool bEnabled)
+{
+	PrimaryActorTick.SetTickEnabled(bEnabled);
+}
+
+void AActor::SetPooledActorState(bool bPooled, bool bInactive)
+{
+	bIsPooledActor = bPooled;
+	bIsPooledActorInactive = bPooled && bInactive;
+}
+
 void AActor::MarkPickingDirty()
 {
 	if (UWorld* World = GetWorld())
@@ -187,10 +279,24 @@ void AActor::BeginPlay()
 	bActorHasBegunPlay = true;
 
 	// UE 순서: 컴포넌트 BeginPlay 먼저, 그다음 Actor 본인 (오버라이드 측 Super 호출 시).
+	TArray<uint32> ComponentUUIDs;
+	ComponentUUIDs.reserve(OwnedComponents.size());
 	for (UActorComponent* Comp : OwnedComponents)
 	{
-		if (Comp) Comp->BeginPlay();
+		if (Comp)
+		{
+			ComponentUUIDs.push_back(Comp->GetUUID());
+		}
 	}
+
+	for (uint32 ComponentUUID : ComponentUUIDs)
+	{
+		if (UActorComponent* Comp = ResolveOwnedComponent(this, ComponentUUID))
+		{
+			Comp->BeginPlay();
+		}
+	}
+
 }
 
 //엔진 단계에서의 틱
@@ -209,9 +315,19 @@ void AActor::EndPlay()
 	bActorHasBegunPlay = false;
 	PrimaryActorTick.UnRegisterTickFunction();
 
+	TArray<uint32> ComponentUUIDs;
+	ComponentUUIDs.reserve(OwnedComponents.size());
 	for (UActorComponent* Comp : OwnedComponents)
 	{
 		if (Comp)
+		{
+			ComponentUUIDs.push_back(Comp->GetUUID());
+		}
+	}
+
+	for (uint32 ComponentUUID : ComponentUUIDs)
+	{
+		if (UActorComponent* Comp = ResolveOwnedComponent(this, ComponentUUID))
 		{
 			Comp->PrimaryComponentTick.UnRegisterTickFunction();
 			Comp->EndPlay();
@@ -221,10 +337,7 @@ void AActor::EndPlay()
 
 void AActor::Tick(float DeltaTime)
 {
-	/*for (UActorComponent* ActorComp : OwnedComponents)
-	{
-		ActorComp->Tick(DeltaTime);
-	}*/
+	(void)DeltaTime;
 }
 
 FRotator AActor::GetActorRotation() const
@@ -278,6 +391,7 @@ void AActor::Serialize(FArchive& Ar)
 	Ar << bVisible;
 	Ar << bNeedsTick;
 }
+
 
 // SceneComponent 서브트리를 재귀 복제. 부모 → 자식 순으로 만들되,
 // RegisterComponent(=CreateRenderState/Proxy) 호출 전에 부모에 Attach 해서
@@ -377,4 +491,20 @@ const TArray<UPrimitiveComponent*>& AActor::GetPrimitiveComponents() const
 		bPrimitiveCacheDirty = false;
 	}
 	return PrimitiveCache;
+}
+
+bool AActor::IsOverlappingActor(const AActor* Other) const
+{
+	for (UActorComponent* OwnedComp : OwnedComponents)
+	{
+		if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(OwnedComp))
+		{
+			//if ((PrimComp->GetOverlapInfos().Num() > 0) && PrimComp->IsOverlappingActor(Other))
+			{
+				// found one, finished
+				return true;
+			}
+		}
+	}
+	return false;
 }

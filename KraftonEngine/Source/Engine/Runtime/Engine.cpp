@@ -16,6 +16,8 @@
 #include "GameFramework/World.h"
 #include "GameFramework/AActor.h"
 #include "Core/TickFunction.h"
+#include "Scripting/LuaScriptSubsystem.h"
+#include "Viewport/GameViewportClient.h"
 
 DEFINE_CLASS(UEngine, UObject)
 
@@ -77,10 +79,14 @@ void UEngine::Init(FWindowsWindow* InWindow)
 
 	FLogManager::Get().Initialize();
 	FDirectoryWatcher::Get().Initialize();
+	FLuaScriptSubsystem::Get().Initialize();
+	FSoundManager::Get().initialize();
 }
 
 void UEngine::Shutdown()
 {
+	TaskScheduler.Clear();
+	FLuaScriptSubsystem::Get().Shutdown();
 	FDirectoryWatcher::Get().Shutdown();
 	FLogManager::Get().Shutdown();
 	RenderPipeline.reset();
@@ -108,6 +114,7 @@ void UEngine::Tick(float DeltaTime)
 	FDirectoryWatcher::Get().ProcessChanges();
 	FNotificationManager::Get().Tick(DeltaTime);
 	InputSystem::Get().Tick();
+	TaskScheduler.Tick(DeltaTime);
 	WorldTick(DeltaTime);
 	Render(DeltaTime);
 }
@@ -124,6 +131,16 @@ void UEngine::Render(float DeltaTime)
 void UEngine::SetRenderPipeline(std::unique_ptr<IRenderPipeline> InPipeline)
 {
 	RenderPipeline = std::move(InPipeline);
+}
+
+
+bool UEngine::HandleWindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
+{
+	if (GameViewportClient)
+	{
+		return GameViewportClient->GetGameUiSystem().ProcessWin32Message(hWnd, Msg, wParam, lParam);
+	}
+	return false;
 }
 
 void UEngine::OnWindowResized(uint32 Width, uint32 Height)
@@ -188,6 +205,10 @@ FWorldContext& UEngine::CreateWorldContext(EWorldType Type, const FName& Handle,
 	Context.ContextHandle = Handle;
 	Context.ContextName = Name.empty() ? Handle.ToString() : Name;
 	Context.World = UObjectManager::Get().CreateObject<UWorld>();
+	if (Context.World)
+	{
+		Context.World->SetWorldType(Type);
+	}
 	WorldList.push_back(Context);
 	return WorldList.back();
 }
