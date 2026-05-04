@@ -12,6 +12,7 @@
 #include "Viewport/GameViewportClient.h"
 
 #include <algorithm>
+#include <string>
 #include <utility>
 
 #include "Engine/UI/Rml/RmlUiConfig.h"
@@ -28,7 +29,7 @@
 
 namespace
 {
-int GetSignedMouseX(LPARAM Param)
+	int GetSignedMouseX(LPARAM Param)
 	{
 		return static_cast<int>(static_cast<short>(LOWORD(Param)));
 	}
@@ -43,7 +44,7 @@ int GetSignedMouseX(LPARAM Param)
 		return static_cast<int>(static_cast<short>(HIWORD(Param)));
 	}
 
-int ToRmlMouseButton(UINT Msg)
+	int ToRmlMouseButton(UINT Msg)
 	{
 		switch (Msg)
 		{
@@ -243,6 +244,7 @@ bool FGameUiSystem::Initialize(FWindowsWindow* Window, FRenderer& Renderer, UGam
 	Context->EnableMouseCursor(true);
 
 	Rml::LoadFontFace("C:/Windows/Fonts/malgun.ttf");
+	Rml::LoadFontFace("C:/Windows/Fonts/malgunbd.ttf");
 	LoadDocuments();
 
 	bAvailable = Context != nullptr;
@@ -260,8 +262,10 @@ void FGameUiSystem::Shutdown()
 #if WITH_RMLUI
 	UnbindPauseMenuEvents();
 
+	IntroDocument = nullptr;
 	HudDocument = nullptr;
 	PauseMenuDocument = nullptr;
+	GameOverDocument = nullptr;
 
 	if (Context)
 	{
@@ -291,7 +295,10 @@ void FGameUiSystem::Shutdown()
 
 	bInitialized = false;
 	bAvailable = false;
+	bIntroVisible = false;
+	bHudVisible = false;
 	bPauseMenuVisible = false;
+	bGameOverVisible = false;
 	bShowingOptions = false;
 }
 
@@ -299,6 +306,16 @@ void FGameUiSystem::SetCallbacks(FGameUiCallbacks InCallbacks)
 {
 	Callbacks = std::move(InCallbacks);
 	RefreshOptionLabels();
+}
+
+void FGameUiSystem::SetScriptEventHandler(std::function<void(const FString&)> InHandler)
+{
+	ScriptEventHandler = std::move(InHandler);
+}
+
+void FGameUiSystem::ClearScriptEventHandler()
+{
+	ScriptEventHandler = nullptr;
 }
 
 void FGameUiSystem::SetPresentationRect(const FViewportPresentationRect& InRect)
@@ -366,6 +383,41 @@ void FGameUiSystem::Render()
 #endif
 }
 
+void FGameUiSystem::SetIntroVisible(bool bVisible)
+{
+	bIntroVisible = bVisible;
+	if (bVisible)
+	{
+		bPauseMenuVisible = false;
+		bGameOverVisible = false;
+		bHudVisible = false;
+	}
+
+#if WITH_RMLUI
+	if (IntroDocument)
+	{
+		bVisible ? IntroDocument->Show() : IntroDocument->Hide();
+	}
+	if (bVisible)
+	{
+		if (PauseMenuDocument) PauseMenuDocument->Hide();
+		if (GameOverDocument) GameOverDocument->Hide();
+		if (HudDocument) HudDocument->Hide();
+	}
+#endif
+}
+
+void FGameUiSystem::SetHudVisible(bool bVisible)
+{
+	bHudVisible = bVisible;
+#if WITH_RMLUI
+	if (HudDocument)
+	{
+		bVisible ? HudDocument->Show() : HudDocument->Hide();
+	}
+#endif
+}
+
 void FGameUiSystem::SetPauseMenuVisible(bool bVisible)
 {
 	bPauseMenuVisible = bVisible;
@@ -392,6 +444,90 @@ void FGameUiSystem::SetPauseMenuVisible(bool bVisible)
 #endif
 }
 
+void FGameUiSystem::SetGameOverVisible(bool bVisible)
+{
+	bGameOverVisible = bVisible;
+	if (bVisible)
+	{
+		bIntroVisible = false;
+		bPauseMenuVisible = false;
+		bHudVisible = false;
+		bShowingOptions = false;
+	}
+
+#if WITH_RMLUI
+	if (GameOverDocument)
+	{
+		bVisible ? GameOverDocument->Show() : GameOverDocument->Hide();
+	}
+	if (bVisible)
+	{
+		if (IntroDocument) IntroDocument->Hide();
+		if (PauseMenuDocument) PauseMenuDocument->Hide();
+		if (HudDocument) HudDocument->Hide();
+	}
+#endif
+}
+
+void FGameUiSystem::SetScore(int32 Score)
+{
+	SetElementTextAny("score-value", std::to_string(std::max(0, Score)).c_str());
+}
+
+void FGameUiSystem::SetBestScore(int32 BestScore)
+{
+	const FString Text = std::to_string(std::max(0, BestScore));
+	SetElementTextAny("best-value", Text.c_str());
+	SetElementTextAny("final-best-value", Text.c_str());
+}
+
+void FGameUiSystem::SetCoins(int32 Coins)
+{
+	SetElementTextAny("coin-value", std::to_string(std::max(0, Coins)).c_str());
+}
+
+void FGameUiSystem::SetLane(int32 Lane)
+{
+	SetElementTextAny("lane-value", std::to_string(std::max(1, Lane)).c_str());
+}
+
+void FGameUiSystem::SetCombo(int32 Combo)
+{
+	const FString Text = "x" + std::to_string(std::max(1, Combo));
+	SetElementTextAny("combo-value", Text.c_str());
+}
+
+void FGameUiSystem::SetStatusText(const FString& Text)
+{
+	SetElementTextAny("status-text", Text.c_str());
+}
+
+void FGameUiSystem::ShowGameOver(int32 FinalScore, int32 BestScore)
+{
+	const int32 SafeFinalScore = std::max(0, FinalScore);
+	const int32 SafeBestScore = std::max(SafeFinalScore, BestScore);
+	SetElementTextAny("final-score-value", std::to_string(SafeFinalScore).c_str());
+	SetElementTextAny("final-best-value", std::to_string(SafeBestScore).c_str());
+	SetGameOverVisible(true);
+}
+
+void FGameUiSystem::HideGameOver()
+{
+	SetGameOverVisible(false);
+}
+
+void FGameUiSystem::ResetRunUi()
+{
+	SetScore(0);
+	SetCoins(0);
+	SetLane(1);
+	SetCombo(1);
+	SetStatusText("READY");
+	SetIntroVisible(false);
+	SetGameOverVisible(false);
+	SetHudVisible(true);
+}
+
 bool FGameUiSystem::LoadDocuments()
 {
 #if WITH_RMLUI
@@ -400,61 +536,129 @@ bool FGameUiSystem::LoadDocuments()
 		return false;
 	}
 
+	IntroDocument = Context->LoadDocument("Asset/UI/Intro.rml");
 	HudDocument = Context->LoadDocument("Asset/UI/HUD.rml");
-	if (HudDocument)
-	{
-		HudDocument->Show();
-	}
-
 	PauseMenuDocument = Context->LoadDocument("Asset/UI/PauseMenu.rml");
-	if (PauseMenuDocument)
-	{
-		PauseMenuDocument->Hide();
-	}
+	GameOverDocument = Context->LoadDocument("Asset/UI/GameOver.rml");
 
-	BindPauseMenuEvents();
+	if (IntroDocument) IntroDocument->Show();
+	if (HudDocument) HudDocument->Hide();
+	if (PauseMenuDocument) PauseMenuDocument->Hide();
+	if (GameOverDocument) GameOverDocument->Hide();
+
+	bIntroVisible = IntroDocument != nullptr;
+	bHudVisible = false;
+	bPauseMenuVisible = false;
+	bGameOverVisible = false;
+
+	BindUiEvents();
 	RefreshOptionLabels();
-	return HudDocument != nullptr || PauseMenuDocument != nullptr;
+	ResetRunUi();
+	SetIntroVisible(true);
+
+	return IntroDocument != nullptr || HudDocument != nullptr || PauseMenuDocument != nullptr || GameOverDocument != nullptr;
 #else
 	return false;
 #endif
 }
 
-void FGameUiSystem::BindPauseMenuEvents()
+void FGameUiSystem::BindUiEvents()
 {
 #if WITH_RMLUI
-	if (!PauseMenuDocument)
-	{
-		return;
-	}
-
 	if (!EventListener)
 	{
 		EventListener = std::make_unique<FGameUiEventListener>(this);
 	}
 
-	auto BindClick = [&](const char* ElementId)
+	static const char* IntroIds[] = {
+		"ui-start",
+		"ui-exit"
+	};
+	static const char* PauseIds[] = {
+		"continue",
+		"options",
+		"restart",
+		"exit",
+		"back",
+		"toggle-fullscreen",
+		"toggle-fxaa"
+	};
+	static const char* GameOverIds[] = {
+		"ui-restart",
+		"ui-main-menu",
+		"ui-gameover-exit"
+	};
+
+	BindDocumentClickEvents(IntroDocument, IntroIds, static_cast<int32>(sizeof(IntroIds) / sizeof(IntroIds[0])));
+	BindDocumentClickEvents(PauseMenuDocument, PauseIds, static_cast<int32>(sizeof(PauseIds) / sizeof(PauseIds[0])));
+	BindDocumentClickEvents(GameOverDocument, GameOverIds, static_cast<int32>(sizeof(GameOverIds) / sizeof(GameOverIds[0])));
+#endif
+}
+
+void FGameUiSystem::BindDocumentClickEvents(Rml::ElementDocument* Document, const char* const* ElementIds, int32 ElementCount)
+{
+#if WITH_RMLUI
+	if (!Document || !EventListener || !ElementIds)
 	{
-		if (Rml::Element* Element = PauseMenuDocument->GetElementById(ElementId))
+		return;
+	}
+
+	for (int32 Index = 0; Index < ElementCount; ++Index)
+	{
+		if (Rml::Element* Element = Document->GetElementById(ElementIds[Index]))
 		{
 			Element->AddEventListener("click", EventListener.get(), false);
 		}
-	};
+	}
+#else
+	(void)Document;
+	(void)ElementIds;
+	(void)ElementCount;
+#endif
+}
 
-	BindClick("continue");
-	BindClick("options");
-	BindClick("restart");
-	BindClick("exit");
-	BindClick("back");
-	BindClick("toggle-fullscreen");
-	BindClick("toggle-fxaa");
+void FGameUiSystem::UnbindDocumentClickEvents(Rml::ElementDocument* Document, const char* const* ElementIds, int32 ElementCount)
+{
+#if WITH_RMLUI
+	if (!Document || !EventListener || !ElementIds)
+	{
+		return;
+	}
+
+	for (int32 Index = 0; Index < ElementCount; ++Index)
+	{
+		if (Rml::Element* Element = Document->GetElementById(ElementIds[Index]))
+		{
+			Element->RemoveEventListener("click", EventListener.get(), false);
+		}
+	}
+#else
+	(void)Document;
+	(void)ElementIds;
+	(void)ElementCount;
 #endif
 }
 
 void FGameUiSystem::HandleClick(const FString& ElementId)
 {
+	if (ElementId == "ui-start")
+	{
+		ResetRunUi();
+		DispatchScriptEvent("start");
+		return;
+	}
+	if (ElementId == "ui-exit" || ElementId == "ui-gameover-exit")
+	{
+		DispatchScriptEvent("exit");
+		if (Callbacks.OnExit)
+		{
+			Callbacks.OnExit();
+		}
+		return;
+	}
 	if (ElementId == "continue")
 	{
+		DispatchScriptEvent("continue");
 		if (Callbacks.OnContinue)
 		{
 			Callbacks.OnContinue();
@@ -466,9 +670,11 @@ void FGameUiSystem::HandleClick(const FString& ElementId)
 		SetOptionsVisible(true);
 		return;
 	}
-	if (ElementId == "restart")
+	if (ElementId == "restart" || ElementId == "ui-restart")
 	{
-		if (Callbacks.OnRestart)
+		ResetRunUi();
+		DispatchScriptEvent("restart");
+		if (ElementId == "restart" && Callbacks.OnRestart)
 		{
 			Callbacks.OnRestart();
 		}
@@ -476,10 +682,19 @@ void FGameUiSystem::HandleClick(const FString& ElementId)
 	}
 	if (ElementId == "exit")
 	{
+		DispatchScriptEvent("exit");
 		if (Callbacks.OnExit)
 		{
 			Callbacks.OnExit();
 		}
+		return;
+	}
+	if (ElementId == "ui-main-menu")
+	{
+		SetGameOverVisible(false);
+		SetHudVisible(false);
+		SetIntroVisible(true);
+		DispatchScriptEvent("main_menu");
 		return;
 	}
 	if (ElementId == "back")
@@ -512,11 +727,19 @@ void FGameUiSystem::HandleClick(const FString& ElementId)
 	}
 }
 
+void FGameUiSystem::DispatchScriptEvent(const FString& EventName)
+{
+	if (ScriptEventHandler)
+	{
+		ScriptEventHandler(EventName);
+	}
+}
+
 void FGameUiSystem::SetOptionsVisible(bool bVisible)
 {
 	bShowingOptions = bVisible;
-	SetElementDisplay("main-panel", !bShowingOptions);
-	SetElementDisplay("options-panel", bShowingOptions);
+	SetElementDisplay(PauseMenuDocument, "main-panel", !bShowingOptions);
+	SetElementDisplay(PauseMenuDocument, "options-panel", bShowingOptions);
 	RefreshOptionLabels();
 }
 
@@ -529,45 +752,65 @@ void FGameUiSystem::RefreshOptionLabels()
 	}
 
 	const bool bFullscreen = Callbacks.IsFullscreen ? Callbacks.IsFullscreen() : false;
-	SetElementText("toggle-fullscreen", bFullscreen ? "전체화면 해제" : "전체화면");
+	SetElementText(PauseMenuDocument, "toggle-fullscreen", bFullscreen ? "전체화면 해제" : "전체화면");
 
 	const bool bFxaa = Callbacks.IsFxaaEnabled ? Callbacks.IsFxaaEnabled() : false;
-	SetElementText("toggle-fxaa", bFxaa ? "FXAA: 켜짐" : "FXAA: 꺼짐");
+	SetElementText(PauseMenuDocument, "toggle-fxaa", bFxaa ? "FXAA: 켜짐" : "FXAA: 꺼짐");
 #endif
 }
 
-void FGameUiSystem::SetElementDisplay(const char* ElementId, bool bVisible)
+void FGameUiSystem::SetElementDisplay(Rml::ElementDocument* Document, const char* ElementId, bool bVisible)
 {
 #if WITH_RMLUI
-	if (!PauseMenuDocument || !ElementId)
+	if (!Document || !ElementId)
 	{
 		return;
 	}
-	if (Rml::Element* Element = PauseMenuDocument->GetElementById(ElementId))
+	if (Rml::Element* Element = Document->GetElementById(ElementId))
 	{
 		Element->SetProperty("display", bVisible ? "block" : "none");
 	}
 #else
+	(void)Document;
 	(void)ElementId;
 	(void)bVisible;
 #endif
 }
 
-void FGameUiSystem::SetElementText(const char* ElementId, const char* Text)
+void FGameUiSystem::SetElementText(Rml::ElementDocument* Document, const char* ElementId, const char* Text)
 {
 #if WITH_RMLUI
-	if (!PauseMenuDocument || !ElementId || !Text)
+	if (!Document || !ElementId || !Text)
 	{
 		return;
 	}
-	if (Rml::Element* Element = PauseMenuDocument->GetElementById(ElementId))
+	if (Rml::Element* Element = Document->GetElementById(ElementId))
 	{
 		Element->SetInnerRML(Text);
 	}
 #else
+	(void)Document;
 	(void)ElementId;
 	(void)Text;
 #endif
+}
+
+void FGameUiSystem::SetElementTextAny(const char* ElementId, const char* Text)
+{
+#if WITH_RMLUI
+	SetElementText(IntroDocument, ElementId, Text);
+	SetElementText(HudDocument, ElementId, Text);
+	SetElementText(PauseMenuDocument, ElementId, Text);
+	SetElementText(GameOverDocument, ElementId, Text);
+#else
+	(void)ElementId;
+	(void)Text;
+#endif
+}
+
+bool FGameUiSystem::IsInteractiveUiVisible() const
+{
+	return bIntroVisible || bPauseMenuVisible || bGameOverVisible;
 }
 
 bool FGameUiSystem::ProcessWin32Message(void* hWnd, uint32 Msg, std::uintptr_t wParam, std::intptr_t lParam)
@@ -646,7 +889,7 @@ bool FGameUiSystem::ProcessMouseMove(float ScreenX, float ScreenY)
 bool FGameUiSystem::ProcessMouseButtonDown(int Button, float ScreenX, float ScreenY)
 {
 #if WITH_RMLUI
-	if (!Context || !bPauseMenuVisible)
+	if (!Context || !IsInteractiveUiVisible())
 	{
 		return false;
 	}
@@ -672,7 +915,7 @@ bool FGameUiSystem::ProcessMouseButtonDown(int Button, float ScreenX, float Scre
 bool FGameUiSystem::ProcessMouseButtonUp(int Button, float ScreenX, float ScreenY)
 {
 #if WITH_RMLUI
-	if (!Context || !bPauseMenuVisible)
+	if (!Context || !IsInteractiveUiVisible())
 	{
 		return false;
 	}
@@ -696,7 +939,7 @@ bool FGameUiSystem::ProcessMouseButtonUp(int Button, float ScreenX, float Screen
 bool FGameUiSystem::ProcessMouseWheel(float WheelDelta, float ScreenX, float ScreenY)
 {
 #if WITH_RMLUI
-	if (!Context || !bPauseMenuVisible)
+	if (!Context || !IsInteractiveUiVisible())
 	{
 		return false;
 	}
@@ -722,7 +965,7 @@ bool FGameUiSystem::ProcessMouseWheel(float WheelDelta, float ScreenX, float Scr
 bool FGameUiSystem::ProcessKeyDown(int VirtualKey)
 {
 #if WITH_RMLUI
-	if (!Context || !bPauseMenuVisible)
+	if (!Context || !IsInteractiveUiVisible())
 	{
 		return false;
 	}
@@ -743,7 +986,7 @@ bool FGameUiSystem::ProcessKeyDown(int VirtualKey)
 bool FGameUiSystem::ProcessKeyUp(int VirtualKey)
 {
 #if WITH_RMLUI
-	if (!Context || !bPauseMenuVisible)
+	if (!Context || !IsInteractiveUiVisible())
 	{
 		return false;
 	}
@@ -764,7 +1007,7 @@ bool FGameUiSystem::ProcessKeyUp(int VirtualKey)
 bool FGameUiSystem::ProcessTextInput(uint32 Codepoint)
 {
 #if WITH_RMLUI
-	if (!Context || !bPauseMenuVisible || Codepoint < 32)
+	if (!Context || !IsInteractiveUiVisible() || Codepoint < 32)
 	{
 		return false;
 	}
@@ -780,7 +1023,7 @@ bool FGameUiSystem::ProcessTextInput(uint32 Codepoint)
 bool FGameUiSystem::WantsMouse() const
 {
 #if WITH_RMLUI
-	return Context && bPauseMenuVisible && Context->IsMouseInteracting();
+	return Context && IsInteractiveUiVisible();
 #else
 	return false;
 #endif
@@ -789,7 +1032,7 @@ bool FGameUiSystem::WantsMouse() const
 bool FGameUiSystem::WantsKeyboard() const
 {
 #if WITH_RMLUI
-	return Context && bPauseMenuVisible && Context->GetFocusElement() != nullptr;
+	return Context && IsInteractiveUiVisible();
 #else
 	return false;
 #endif
@@ -798,25 +1041,32 @@ bool FGameUiSystem::WantsKeyboard() const
 void FGameUiSystem::UnbindPauseMenuEvents()
 {
 #if WITH_RMLUI
-	if (!PauseMenuDocument || !EventListener)
+	if (!EventListener)
 	{
 		return;
 	}
 
-	auto UnbindClick = [&](const char* ElementId)
-	{
-		if (Rml::Element* Element = PauseMenuDocument->GetElementById(ElementId))
-		{
-			Element->RemoveEventListener("click", EventListener.get(), false);
-		}
+	static const char* IntroIds[] = {
+		"ui-start",
+		"ui-exit"
+	};
+	static const char* PauseIds[] = {
+		"continue",
+		"options",
+		"restart",
+		"exit",
+		"back",
+		"toggle-fullscreen",
+		"toggle-fxaa"
+	};
+	static const char* GameOverIds[] = {
+		"ui-restart",
+		"ui-main-menu",
+		"ui-gameover-exit"
 	};
 
-	UnbindClick("continue");
-	UnbindClick("options");
-	UnbindClick("restart");
-	UnbindClick("exit");
-	UnbindClick("back");
-	UnbindClick("toggle-fullscreen");
-	UnbindClick("toggle-fxaa");
+	UnbindDocumentClickEvents(IntroDocument, IntroIds, static_cast<int32>(sizeof(IntroIds) / sizeof(IntroIds[0])));
+	UnbindDocumentClickEvents(PauseMenuDocument, PauseIds, static_cast<int32>(sizeof(PauseIds) / sizeof(PauseIds[0])));
+	UnbindDocumentClickEvents(GameOverDocument, GameOverIds, static_cast<int32>(sizeof(GameOverIds) / sizeof(GameOverIds[0])));
 #endif
 }

@@ -1,18 +1,18 @@
 <rml>
 <head>
-    <title>HUD</title>
     <link type="text/rcss" href="Common.rcss"/>
     <link type="text/rcss" href="HUD.rcss"/>
 </head>
 <body>
-    <div id="hud-root">
-        <div id="health-panel">
-            <span id="health-label">HP</span>
-            <div id="health-bar-bg">
-                <div id="health-bar"></div>
+    <div id="hud-root" class="screen-root">
+        <div id="score-card">
+            <img id="score-icon" src="../../Editor/Icons/Sphere_64x.png"/>
+            <div class="hud-label">SCORE</div>
+            <div id="score-value" class="hud-score">0</div>
+            <div class="hud-small-row">
+                <span>BEST </span><span id="best-value">0</span>
             </div>
         </div>
-        <div id="crosshair">+</div>
     </div>
 </body>
 </rml>

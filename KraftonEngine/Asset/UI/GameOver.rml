@@ -1,0 +1,20 @@
+<rml>
+<head>
+    <link type="text/rcss" href="Common.rcss"/>
+    <link type="text/rcss" href="GameOver.rcss"/>
+</head>
+<body>
+    <div id="gameover-root" class="screen-root">
+        <div class="dim-bg"></div>
+        <div id="gameover-panel" class="panel">
+            <div class="panel-title">게임 오버</div>
+            <div class="panel-subtitle">다음 도전에서는 더 멀리 갈 수 있습니다</div>
+            <div class="stat-row"><span class="stat-label">점수</span><span id="final-score-value" class="stat-value">0</span></div>
+            <div class="stat-row"><span class="stat-label">최고 점수</span><span id="final-best-value" class="stat-value">0</span></div>
+            <div id="ui-restart" class="button">다시 도전</div>
+            <div id="ui-main-menu" class="button secondary">타이틀로</div>
+            <div id="ui-gameover-exit" class="button danger">종료</div>
+        </div>
+    </div>
+</body>
+</rml>

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 namespace sol
 {
@@ -39,3 +39,4 @@ void RegisterWorldExtendedBinding(sol::state& Lua);
 void RegisterInputBinding(sol::state& Lua);
 
 void RegisterDelegateBinding(sol::state& Lua);
+void RegisterUiBinding(sol::state& Lua);

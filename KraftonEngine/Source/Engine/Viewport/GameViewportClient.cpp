@@ -169,8 +169,15 @@ void UGameViewportClient::ResetInputState()
 
 bool UGameViewportClient::Tick(float DeltaTime, FInputFrame& InputFrame)
 {
+	const bool bUiActive = GameUiSystem.IsIntroVisible() || GameUiSystem.IsPauseMenuVisible() || GameUiSystem.IsGameOverVisible();
+
 	if (!bPIEPossessedInputEnabled || !HasPossessedTarget())
 	{
+		if (bPIEPossessedInputEnabled && bUiActive)
+		{
+			InputSystem::Get().SetUseRawMouse(false);
+			SetCursorCaptured(false);
+		}
 		return false;
 	}
 	if (!InputFrame.IsWindowFocused())
@@ -178,6 +185,12 @@ bool UGameViewportClient::Tick(float DeltaTime, FInputFrame& InputFrame)
 		InputSystem::Get().SetUseRawMouse(false);
 		SetCursorCaptured(false);
 		ResetInputState();
+		return false;
+	}
+	if (bUiActive)
+	{
+		InputSystem::Get().SetUseRawMouse(false);
+		SetCursorCaptured(false);
 		return false;
 	}
 	InputSystem::Get().SetUseRawMouse(true);

@@ -923,6 +923,9 @@
     <ClCompile Include="Source\Engine\Scripting\LuaStaticMeshBindings.cpp">
       <Filter>Source\Engine\Scripting</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Scripting\LuaUiBindings.cpp">
+      <Filter>Source\Engine\Scripting</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Scripting\LuaWorldExtendedBindings.cpp">
       <Filter>Source\Engine\Scripting</Filter>
     </ClCompile>

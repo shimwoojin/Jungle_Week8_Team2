@@ -1,6 +1,7 @@
 #include "Engine/UI/Rml/RmlD3D11RenderInterface.h"
 
 #include "Core/CoreTypes.h"
+#include "WICTextureLoader.h"
 
 #include "Engine/UI/Rml/RmlUiConfig.h"
 #if WITH_RMLUI
@@ -435,11 +436,49 @@ void FRmlD3D11RenderInterface::ReleaseGeometry(Rml::CompiledGeometryHandle Geome
 
 Rml::TextureHandle FRmlD3D11RenderInterface::LoadTexture(Rml::Vector2i& TextureDimensions, const Rml::String& Source)
 {
-	// 기본 UI는 RmlUi가 생성하는 폰트 아틀라스와 단색/박스 지오메트리만 사용한다.
-	// 이미지 파일 로딩이 필요해지면 이 함수에 WIC 또는 프로젝트 Texture2D 로더를 연결하면 된다.
-	(void)TextureDimensions;
-	(void)Source;
-	return 0;
+	if (!Device || Source.empty())
+	{
+		return 0;
+	}
+
+	std::wstring WidePath(Source.begin(), Source.end());
+
+	ID3D11Resource* Resource = nullptr;
+	ID3D11ShaderResourceView* SRV = nullptr;
+	HRESULT HR = DirectX::CreateWICTextureFromFileEx(
+		Device,
+		WidePath.c_str(),
+		0,
+		D3D11_USAGE_DEFAULT,
+		D3D11_BIND_SHADER_RESOURCE,
+		0,
+		0,
+		DirectX::WIC_LOADER_IGNORE_SRGB,
+		&Resource,
+		&SRV);
+
+	if (FAILED(HR) || !SRV)
+	{
+		SafeRelease(Resource);
+		return 0;
+	}
+
+	ID3D11Texture2D* Texture2D = nullptr;
+	if (SUCCEEDED(Resource->QueryInterface(__uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&Texture2D))))
+	{
+		D3D11_TEXTURE2D_DESC Desc = {};
+		Texture2D->GetDesc(&Desc);
+		TextureDimensions.x = static_cast<int>(Desc.Width);
+		TextureDimensions.y = static_cast<int>(Desc.Height);
+		SafeRelease(Texture2D);
+	}
+	SafeRelease(Resource);
+
+	auto* Texture = new FTextureResource();
+	Texture->SRV = SRV;
+	Texture->Width = TextureDimensions.x;
+	Texture->Height = TextureDimensions.y;
+	return reinterpret_cast<Rml::TextureHandle>(Texture);
 }
 
 Rml::TextureHandle FRmlD3D11RenderInterface::GenerateTexture(
@@ -451,7 +490,7 @@ Rml::TextureHandle FRmlD3D11RenderInterface::GenerateTexture(
 		return 0;
 	}
 
-	return CreateTextureFromRGBA(Source.data(), SourceDimensions.x, SourceDimensions.y, true);
+	return CreateTextureFromRGBA(Source.data(), SourceDimensions.x, SourceDimensions.y, false);
 }
 
 Rml::TextureHandle FRmlD3D11RenderInterface::CreateTextureFromRGBA(

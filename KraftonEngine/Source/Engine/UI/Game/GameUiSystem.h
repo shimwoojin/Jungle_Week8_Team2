@@ -20,6 +20,7 @@ class FGameUiEventListener;
 namespace Rml
 {
 	class Context;
+	class Element;
 	class ElementDocument;
 }
 
@@ -46,14 +47,37 @@ public:
 	void Shutdown();
 
 	void SetCallbacks(FGameUiCallbacks InCallbacks);
+	void SetScriptEventHandler(std::function<void(const FString&)> InHandler);
+	void ClearScriptEventHandler();
+
 	void SetPresentationRect(const FViewportPresentationRect& InRect);
 	const FViewportPresentationRect& GetPresentationRect() const { return PresentationRect; }
 
 	void Update(float DeltaTime);
 	void Render();
 
+	void SetIntroVisible(bool bVisible);
+	bool IsIntroVisible() const { return bIntroVisible; }
+
+	void SetHudVisible(bool bVisible);
+	bool IsHudVisible() const { return bHudVisible; }
+
 	void SetPauseMenuVisible(bool bVisible);
 	bool IsPauseMenuVisible() const { return bPauseMenuVisible; }
+
+	void SetGameOverVisible(bool bVisible);
+	bool IsGameOverVisible() const { return bGameOverVisible; }
+
+	void SetScore(int32 Score);
+	void SetBestScore(int32 BestScore);
+	void SetCoins(int32 Coins);
+	void SetLane(int32 Lane);
+	void SetCombo(int32 Combo);
+	void SetStatusText(const FString& Text);
+	void ShowGameOver(int32 FinalScore, int32 BestScore);
+	void HideGameOver();
+	void ResetRunUi();
+
 	bool IsAvailable() const { return bAvailable; }
 	bool IsInitialized() const { return bInitialized; }
 
@@ -74,12 +98,18 @@ private:
 	friend class FGameUiEventListener;
 
 	bool LoadDocuments();
-	void BindPauseMenuEvents();
+	void BindUiEvents();
+	void BindDocumentClickEvents(Rml::ElementDocument* Document, const char* const* ElementIds, int32 ElementCount);
+	void UnbindDocumentClickEvents(Rml::ElementDocument* Document, const char* const* ElementIds, int32 ElementCount);
 	void HandleClick(const FString& ElementId);
+	void DispatchScriptEvent(const FString& EventName);
+
 	void SetOptionsVisible(bool bVisible);
 	void RefreshOptionLabels();
-	void SetElementDisplay(const char* ElementId, bool bVisible);
-	void SetElementText(const char* ElementId, const char* Text);
+	void SetElementDisplay(Rml::ElementDocument* Document, const char* ElementId, bool bVisible);
+	void SetElementText(Rml::ElementDocument* Document, const char* ElementId, const char* Text);
+	void SetElementTextAny(const char* ElementId, const char* Text);
+	bool IsInteractiveUiVisible() const;
 	void SyncContextDimensions();
 
 private:
@@ -87,17 +117,23 @@ private:
 	UGameViewportClient* ViewportClient = nullptr;
 	FViewportPresentationRect PresentationRect;
 	FGameUiCallbacks Callbacks;
+	std::function<void(const FString&)> ScriptEventHandler;
 
 	std::unique_ptr<FRmlD3D11RenderInterface> RenderInterface;
 	std::unique_ptr<FRmlWin32SystemInterface> SystemInterface;
 	std::unique_ptr<FGameUiEventListener> EventListener;
 
 	Rml::Context* Context = nullptr;
+	Rml::ElementDocument* IntroDocument = nullptr;
 	Rml::ElementDocument* HudDocument = nullptr;
 	Rml::ElementDocument* PauseMenuDocument = nullptr;
+	Rml::ElementDocument* GameOverDocument = nullptr;
 
 	bool bInitialized = false;
 	bool bAvailable = false;
+	bool bIntroVisible = false;
+	bool bHudVisible = false;
 	bool bPauseMenuVisible = false;
+	bool bGameOverVisible = false;
 	bool bShowingOptions = false;
 };

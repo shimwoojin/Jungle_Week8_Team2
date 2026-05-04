@@ -1,42 +1,45 @@
 #hud-root {
-    width: 100%;
-    height: 100%;
     pointer-events: none;
 }
 
-#health-panel {
+#score-card {
     position: absolute;
-    left: 32px;
-    bottom: 32px;
-    width: 260px;
-    height: 48px;
-}
-
-#health-label {
-    font-size: 15px;
-}
-
-#health-bar-bg {
+    left: 28px;
+    top: 24px;
     width: 220px;
-    height: 16px;
-    margin-top: 6px;
-    background-color: rgb(28, 28, 28);
-    border-width: 1px;
-    border-color: rgb(90, 90, 90);
+    height: 140px;
+    padding: 14px;
+    background-color: rgba(10, 16, 24, 170);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 58);
+    border-radius: 10px;
 }
 
-#health-bar {
-    width: 75%;
-    height: 100%;
-    background-color: rgb(220, 60, 60);
+#score-icon {
+    display: block;
+    width: 32px;
+    height: 32px;
+    margin-bottom: 2px;
 }
 
-#crosshair {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    margin-left: -5px;
-    margin-top: -14px;
-    color: white;
-    font-size: 28px;
+.hud-label {
+    display: block;
+    font-size: 16px;
+    color: #9fb0c8;
 }
+
+.hud-score {
+    display: block;
+    margin-top: -2px;
+    font-size: 44px;
+    font-weight: bold;
+    color: #ffd166;
+}
+
+.hud-small-row {
+    display: block;
+    margin-top: 0px;
+    font-size: 16px;
+    color: #d7e2f2;
+}
+
