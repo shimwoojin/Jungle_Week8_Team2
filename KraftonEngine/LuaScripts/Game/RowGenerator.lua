@@ -62,6 +62,13 @@ local VehicleWeights = {
 function RowGenerator.ConfigureRows()
     SetRowSize(RowGenerator.MapConfig.SlotCount, RowGenerator.MapConfig.SlotSize, RowGenerator.MapConfig.RowDepth)
     SetRowBufferCounts(6, 12)
+
+    if World and World.WarmUpPrefabPool then
+        World.WarmUpPrefabPool(PREFABS.TREE1, 100)
+        World.WarmUpPrefabPool(PREFABS.TREE2, 100)
+        -- World.WarmUpPrefabPool(PREFABS.CARA, 30)
+        -- World.WarmUpPrefabPool(PREFABS.ROCK, 20)
+    end
 end
 
 -- 가중치 기반 독립적 선택
@@ -92,9 +99,10 @@ end
 function RowGenerator.GenerateRow(rowIndex)
     -- 1. 지형 결정 (Markov Chain)
     local biome = ChooseWeighted(BiomeWeights)
-    local biomeType = biome.type
+    -- local biomeType = biome.type
+    local biomeType = BIOME.GRASS
     SetRowBiome(rowIndex, biomeType)
-    print("Biome : " .. (BIOME_NAME[biomeType] or tostring(biomeType)))     
+    print("Biome : " .. (BIOME_NAME[biomeType] or tostring(biomeType)))
 
     -- 2. 안전한 경로 계산 (-1 ~ 1 슬롯 이동)
     local nextSafeSlot = LastSafeSlot + math.random(-1, 1)

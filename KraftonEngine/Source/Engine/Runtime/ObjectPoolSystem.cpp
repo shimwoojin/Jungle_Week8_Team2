@@ -1,4 +1,4 @@
-#include "Runtime/ObjectPoolSystem.h"
+﻿#include "Runtime/ObjectPoolSystem.h"
 
 #include "Component/ActorComponent.h"
 #include "GameFramework/World.h"
@@ -126,10 +126,6 @@ AActor* FObjectPoolSystem::AcquireActorByKey(UWorld* World, const FPoolKey& Key,
 		{
 			return nullptr;
 		}
-	}
-	else if (bReusedActor && Key.IsPrefab())
-	{
-		ResetActorFromPrefab(Actor, Key);
 	}
 
 	ActorPoolKeys[Actor] = Key;
