@@ -146,7 +146,6 @@
         "bTickEnable" : true
       }
     },
-    "Tags" : [],
     "bVisible" : true
   },
   "Type" : "ActorPrefab",
