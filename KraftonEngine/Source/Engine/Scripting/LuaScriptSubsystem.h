@@ -27,12 +27,15 @@ public:
 		return Lua;
 	}
 
+	bool DispatchUiEvent(const FString& EventName);
+
 	bool ExecuteString(const FString& Code);
 	bool ExecuteFile(const FString& Path);
 
 	bool BindComponent(ULuaScriptComponent* Component, const FString& ScriptPath);
 	void UnbindComponent(const ULuaScriptComponent* Component);
 	void CallComponentBeginPlay(ULuaScriptComponent* Component);
+	void CallComponentHotReload(ULuaScriptComponent* Component);
 	void CallInput(UWorld* World, float DeltaTime);
 	void CallComponentTick(ULuaScriptComponent* Component, float DeltaTime);
 	void CallComponentEndPlay(ULuaScriptComponent* Component);
@@ -84,15 +87,19 @@ private:
 		sol::function OnInput;
 		sol::function Tick;
 		sol::function EndPlay;
+		sol::function OnHotReload;
 		sol::function OnSpawnFromPool;
 		sol::function OnReturnToPool;
 		sol::function OnOverlap;
 		TSet<FString> ActiveCoroutineFunctions;
+		bool bDisabledByError = false;
+		FString LastError;
 	};
 
 	FLuaComponentBinding* FindComponentBinding(uint32 ComponentUUID);
 	const FLuaComponentBinding* FindComponentBinding(uint32 ComponentUUID) const;
 	void CancelAllComponentTasks();
+	void DisableComponentBindingByError(uint32 ComponentUUID, const FString& Context, const char* Error);
 	bool TryBeginCoroutine(const FString& FunctionName, uint32 OwnerUUID);
 	void FinishCoroutine(const FString& FunctionName, uint32 OwnerUUID);
 	void StartCoroutine(const char* FunctionName, const sol::function& Function, uint32 OwnerUUID);
@@ -115,4 +122,5 @@ private:
 	TMap<FString, FString> ModulePaths;
 	TArray<FLuaDependencyContext> DependencyContextStack;
 	TMap<uint32, FLuaComponentBinding> ComponentBindings;
+	uint64 LuaGeneration = 0;
 };

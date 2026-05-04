@@ -41,3 +41,5 @@ void RegisterInputBinding(sol::state& Lua);
 void RegisterDelegateBinding(sol::state& Lua);
 void RegisterRowManagerBinding(sol::state& Lua);
 void RegisterUiBinding(sol::state& Lua);
+void InstallLuaUiEventRouter();
+void ClearLuaUiEventHandler();
