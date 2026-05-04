@@ -168,15 +168,6 @@ void APlayerController::Possess(AActor* InActor)
 			Orientation = PossessedActor->AddComponent<UPawnOrientationComponent>();
 		}
 
-		// Camera-driven player movement expects the possessed target to face the same yaw
-		// used for movement. Old default components used MovementDirectionWithControlFallback,
-		// which made strafing and mouse-look feel detached from the camera. Migrate only
-		// that old default to the camera/control-yaw facing mode.
-		if (Orientation && Orientation->GetFacingMode() == EPawnFacingMode::MovementDirectionWithControlFallback)
-		{
-			Orientation->SetFacingMode(EPawnFacingMode::ControlRotationYaw);
-		}
-
 		if (APawn* Pawn = Cast<APawn>(PossessedActor))
 		{
 			Pawn->SetController(this);

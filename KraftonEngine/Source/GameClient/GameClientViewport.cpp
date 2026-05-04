@@ -7,6 +7,9 @@
 #include "Render/Pipeline/Renderer.h"
 #include "Viewport/GameViewportClient.h"
 #include "Viewport/Viewport.h"
+#include "Viewport/ViewportPresentationTypes.h"
+
+#include <utility>
 
 bool FGameClientViewport::Initialize(
 	UGameClientEngine* InEngine,
@@ -32,6 +35,61 @@ bool FGameClientViewport::Initialize(
 	Viewport->SetClient(ViewportClient);
 	ViewportClient->SetViewport(Viewport);
 	ViewportClient->SetOwnerWindow(Window->GetHWND());
+	const FViewportPresentationRect InitialPresentationRect(
+		0.0f,
+		0.0f,
+		static_cast<float>(Window->GetWidth()),
+		static_cast<float>(Window->GetHeight()));
+	ViewportClient->SetPresentationRect(InitialPresentationRect);
+	ViewportClient->SetCursorClipRect(InitialPresentationRect);
+
+	FGameUiCallbacks UiCallbacks;
+	UiCallbacks.OnContinue = [InEngine]()
+	{
+		if (InEngine)
+		{
+			InEngine->SetPauseMenuOpen(false);
+		}
+	};
+	UiCallbacks.OnRestart = [InEngine]()
+	{
+		if (InEngine)
+		{
+			InEngine->RequestRestart();
+		}
+	};
+	UiCallbacks.OnExit = [InEngine]()
+	{
+		if (InEngine)
+		{
+			InEngine->RequestExit();
+		}
+	};
+	UiCallbacks.OnToggleFullscreen = [Window]()
+	{
+		if (Window)
+		{
+			Window->ToggleFullscreen();
+		}
+	};
+	UiCallbacks.IsFullscreen = [Window]() -> bool
+	{
+		return Window && Window->IsFullscreen();
+	};
+	UiCallbacks.IsFxaaEnabled = [InEngine]() -> bool
+	{
+		return InEngine && InEngine->GetSettings().RenderOptions.ShowFlags.bFXAA;
+	};
+	UiCallbacks.OnFxaaChanged = [InEngine](bool bEnabled)
+	{
+		if (InEngine)
+		{
+			InEngine->GetSettings().RenderOptions.ShowFlags.bFXAA = bEnabled;
+		}
+	};
+	ViewportClient->GetGameUiSystem().SetCallbacks(std::move(UiCallbacks));
+	ViewportClient->GetGameUiSystem().Initialize(Window, Renderer, ViewportClient);
+
 	SetInputEnabled(true);
 
 	return true;
@@ -103,12 +161,24 @@ void FGameClientViewport::OnWindowResized(uint32 Width, uint32 Height)
 	{
 		Viewport->RequestResize(Width, Height);
 	}
+
+	if (ViewportClient)
+	{
+		const FViewportPresentationRect PresentationRect(
+			0.0f,
+			0.0f,
+			static_cast<float>(Width),
+			static_cast<float>(Height));
+		ViewportClient->SetPresentationRect(PresentationRect);
+		ViewportClient->SetCursorClipRect(PresentationRect);
+	}
 }
 
 void FGameClientViewport::Shutdown()
 {
 	if (ViewportClient)
 	{
+		ViewportClient->GetGameUiSystem().Shutdown();
 		ViewportClient->OnEndPIE();
 		UObjectManager::Get().DestroyObject(ViewportClient);
 		ViewportClient = nullptr;

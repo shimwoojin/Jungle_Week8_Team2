@@ -310,6 +310,9 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Engine\Runtime\RowManager.cpp" />
+    <ClCompile Include="Source\Engine\Scripting\LuaRowManagerBindings.cpp" />
+    <ClCompile Include="Source\Engine\Serialization\PrefabSaveManager.cpp" />
     <ClCompile Include="Source\Editor\EditorEngine.cpp" />
     <ClCompile Include="Source\Editor\EditorRenderPipeline.cpp" />
     <ClCompile Include="Source\Editor\Packaging\GamePackageAssetCollector.cpp" />
@@ -483,6 +486,7 @@
     <ClCompile Include="Source\Engine\Render\Shadow\AtlasQuadTreePoint.cpp" />
     <ClCompile Include="Source\Engine\Render\Shadow\ShadowAtlasQuadTree.cpp" />
     <ClCompile Include="Source\Engine\Render\Types\FrameContext.cpp" />
+    <ClCompile Include="Source\Engine\Render\Viewport\D3D11ViewportPresenter.cpp" />
     <ClCompile Include="Source\Engine\Resource\ResourceManager.cpp" />
     <ClCompile Include="Source\Engine\Runtime\Delegate.cpp" />
     <ClCompile Include="Source\Engine\Runtime\Engine.cpp" />
@@ -509,12 +513,17 @@
     <ClCompile Include="Source\Engine\Scripting\LuaScriptSubsystem.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaShapeBindings.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaStaticMeshBindings.cpp" />
+    <ClCompile Include="Source\Engine\Scripting\LuaUiBindings.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaWorldExtendedBindings.cpp" />
     <ClCompile Include="Source\Engine\Scripting\LuaWorldLibrary.cpp" />
     <ClCompile Include="Source\Engine\Serialization\PrefabSaveManager.cpp" />
     <ClCompile Include="Source\Engine\Serialization\SceneSaveManager.cpp" />
     <ClCompile Include="Source\Engine\Sound\SoundManager.cpp" />
     <ClCompile Include="Source\Engine\Texture\Texture2D.cpp" />
+    <ClCompile Include="Source\Engine\UI\Game\GameUiSystem.cpp" />
+    <ClCompile Include="Source\Engine\UI\ImGui\ImGuiViewportPresenter.cpp" />
+    <ClCompile Include="Source\Engine\UI\Rml\RmlD3D11RenderInterface.cpp" />
+    <ClCompile Include="Source\Engine\UI\Rml\RmlWin32SystemInterface.cpp" />
     <ClCompile Include="Source\Engine\UI\SSplitter.cpp" />
     <ClCompile Include="Source\Engine\UI\SWindow.cpp" />
     <ClCompile Include="Source\Engine\Viewport\GameViewportClient.cpp" />
@@ -542,6 +551,8 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\Engine\Runtime\RowManager.h" />
+    <ClInclude Include="Source\Engine\Serialization\PrefabSaveManager.h" />
     <ClInclude Include="Source\Editor\EditorEngine.h" />
     <ClInclude Include="Source\Editor\EditorRenderPipeline.h" />
     <ClInclude Include="Source\Editor\PIE\PIETypes.h" />
@@ -757,6 +768,7 @@
     <ClInclude Include="Source\Engine\Render\Types\ShadowSettings.h" />
     <ClInclude Include="Source\Engine\Render\Types\VertexTypes.h" />
     <ClInclude Include="Source\Engine\Render\Types\ViewTypes.h" />
+    <ClInclude Include="Source\Engine\Render\Viewport\D3D11ViewportPresenter.h" />
     <ClInclude Include="Source\Engine\Resource\ResourceManager.h" />
     <ClInclude Include="Source\Engine\Runtime\Delegate.h" />
     <ClInclude Include="Source\Engine\Runtime\DelegateSubscriptionBox.h" />
@@ -785,12 +797,19 @@
     <ClInclude Include="Source\Engine\Serialization\WindowsArchive.h" />
     <ClInclude Include="Source\Engine\Sound\SoundManager.h" />
     <ClInclude Include="Source\Engine\Texture\Texture2D.h" />
+    <ClInclude Include="Source\Engine\UI\Game\GameUiSystem.h" />
+    <ClInclude Include="Source\Engine\UI\ImGui\ImGuiViewportPresenter.h" />
+    <ClInclude Include="Source\Engine\UI\Rml\RmlD3D11RenderInterface.h" />
+    <ClInclude Include="Source\Engine\UI\Rml\RmlUiConfig.h" />
+    <ClInclude Include="Source\Engine\UI\Rml\RmlUiWindowsMacroGuard.h" />
+    <ClInclude Include="Source\Engine\UI\Rml\RmlWin32SystemInterface.h" />
     <ClInclude Include="Source\Engine\UI\SSplitter.h" />
     <ClInclude Include="Source\Engine\UI\SWidget.h" />
     <ClInclude Include="Source\Engine\UI\SWindow.h" />
     <ClInclude Include="Source\Engine\Viewport\GameViewportClient.h" />
     <ClInclude Include="Source\Engine\Viewport\Viewport.h" />
     <ClInclude Include="Source\Engine\Viewport\ViewportClient.h" />
+    <ClInclude Include="Source\Engine\Viewport\ViewportPresentationTypes.h" />
     <ClInclude Include="Source\GameClient\GameCameraManager.h" />
     <ClInclude Include="Source\GameClient\GameClientEngine.h" />
     <ClInclude Include="Source\GameClient\GameClientOverlay.h" />
@@ -1168,6 +1187,9 @@
     <ResourceCompile Include="KraftonEngine.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="LuaScripts\Game\RowGenerator.lua">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
     <None Include="VcpkgLua.props" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

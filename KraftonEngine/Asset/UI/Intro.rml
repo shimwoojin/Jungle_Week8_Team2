@@ -1,0 +1,29 @@
+<rml>
+<head>
+    <link type="text/rcss" href="Common.rcss"/>
+    <link type="text/rcss" href="Intro.rcss"/>
+</head>
+<body>
+    <div id="intro-root" class="screen-root">
+        <div class="dim-bg"></div>
+        <div id="road-lines">
+            <div class="road-line line-a"></div>
+            <div class="road-line line-b"></div>
+            <div class="road-line line-c"></div>
+        </div>
+        <div id="deco-layer">
+            <img class="deco-ball deco-ball-1" src="../../Editor/Icons/Sphere_64x.png"/>
+            <img class="deco-ball deco-ball-2" src="../../Editor/Icons/Sphere_64x.png"/>
+            <img class="deco-ball deco-ball-3" src="../../Editor/Icons/Sphere_64x.png"/>
+            <img class="deco-ball deco-ball-4" src="../../Editor/Icons/Sphere_64x.png"/>
+        </div>
+        <div id="intro-panel" class="panel">
+            <div id="game-title">ROAD DASH FRIENDS</div>
+            <div id="game-subtitle">도로를 건너고, 코인을 줍고, 최고 점수를 갱신하세요</div>
+            <div id="ui-start" class="button">게임 시작</div>
+            <div id="ui-exit" class="button secondary">종료</div>
+            <div class="hint">WASD / 방향키 이동 · ESC 메뉴</div>
+        </div>
+    </div>
+</body>
+</rml>

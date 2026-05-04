@@ -53,9 +53,16 @@ local CONFIG = {
     },
 
     Orientation = {
-        -- Scene JSON: "Facing Mode" : 1
+        -- 0 = None
         -- 1 = ControlRotationYaw
-        FacingMode = 1,
+        -- 2 = MovementInputDirection
+        -- 3 = MovementVelocityDirection
+        -- 4 = MovementDirectionWithControlFallback
+        -- 5 = CustomWorldDirection
+    
+        -- 추천: 실제 이동 속도 방향을 바라봅니다.
+        FacingMode = 4,
+    
         RotationSpeed = 720.0,
         YawOnly = true,
         CustomFacingDirection = Vec(1.0, 0.0, 0.0)

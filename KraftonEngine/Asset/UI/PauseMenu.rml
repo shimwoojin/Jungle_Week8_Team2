@@ -1,0 +1,27 @@
+<rml>
+<head>
+    <link type="text/rcss" href="Common.rcss"/>
+    <link type="text/rcss" href="PauseMenu.rcss"/>
+</head>
+<body>
+    <div id="pause-root" class="screen-root">
+        <div class="dim-bg"></div>
+        <div id="pause-panel" class="panel">
+            <div id="main-panel">
+                <div class="panel-title">일시정지</div>
+                <div id="continue" class="button">계속하기</div>
+                <div id="options" class="button secondary">옵션</div>
+                <div id="restart" class="button secondary">다시 시작</div>
+                <div id="exit" class="button danger">종료</div>
+                <div class="hint">ESC를 다시 누르면 게임으로 돌아갑니다</div>
+            </div>
+            <div id="options-panel">
+                <div class="panel-title">옵션</div>
+                <div id="toggle-fullscreen" class="button secondary">전체화면</div>
+                <div id="toggle-fxaa" class="button secondary">FXAA: 꺼짐</div>
+                <div id="back" class="button">뒤로</div>
+            </div>
+        </div>
+    </div>
+</body>
+</rml>

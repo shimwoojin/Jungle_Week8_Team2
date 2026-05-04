@@ -17,6 +17,7 @@
 #include "GameFramework/AActor.h"
 #include "Core/TickFunction.h"
 #include "Scripting/LuaScriptSubsystem.h"
+#include "Viewport/GameViewportClient.h"
 
 DEFINE_CLASS(UEngine, UObject)
 
@@ -130,6 +131,16 @@ void UEngine::Render(float DeltaTime)
 void UEngine::SetRenderPipeline(std::unique_ptr<IRenderPipeline> InPipeline)
 {
 	RenderPipeline = std::move(InPipeline);
+}
+
+
+bool UEngine::HandleWindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
+{
+	if (GameViewportClient)
+	{
+		return GameViewportClient->GetGameUiSystem().ProcessWin32Message(hWnd, Msg, wParam, lParam);
+	}
+	return false;
 }
 
 void UEngine::OnWindowResized(uint32 Width, uint32 Height)

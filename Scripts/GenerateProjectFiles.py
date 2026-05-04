@@ -121,8 +121,10 @@ SFML_PLATFORMS = {"x64"}
 
 # Lua / vcpkg property sheet
 USE_VCPKG_LUA_PROPS = True
-VCPKG_LUA_PROPS = "$(MSBuildProjectDirectory)\\VcpkgLua.props"
+VCPKG_LUA_PROPS_FILE = "VcpkgLua.props"
+VCPKG_LUA_PROPS = f"$(MSBuildProjectDirectory)\\{VCPKG_LUA_PROPS_FILE}"
 VCPKG_LUA_PLATFORMS = {"x64"}
+GENERATE_VCPKG_LUA_PROPS = True
 
 # NuGet packages
 NUGET_PACKAGES = [
@@ -297,6 +299,91 @@ def write_xml(root_elem, filepath: Path, bom=False):
 
         f.write('<?xml version="1.0" encoding="utf-8"?>\n')
         tree.write(f, encoding="unicode", xml_declaration=False)
+
+
+
+# ──────────────────────────────────────────────
+# Vcpkg property sheet
+# ──────────────────────────────────────────────
+def generate_vcpkg_lua_props():
+    """Generate the shared vcpkg property sheet used by all x64 configs.
+
+    This intentionally keeps vcpkg/RmlUi in a property sheet instead of
+    emitting it into each configuration block. The .vcxproj imports this sheet
+    for every x64 configuration, and the CopyVcpkgRuntimeDlls target avoids
+    fighting with the per-config SFML PostBuildEvent generated below.
+    """
+    props_path = PROJECT_DIR / VCPKG_LUA_PROPS_FILE
+
+    content = r'''<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <VcpkgTriplet>x64-windows</VcpkgTriplet>
+    <VcpkgInstalledRoot>$(MSBuildProjectDirectory)\..\vcpkg_installed\$(VcpkgTriplet)</VcpkgInstalledRoot>
+
+    <!-- Debug uses vcpkg debug libs/dlls. All release-like custom configs use release. -->
+    <VcpkgLibDir Condition="'$(Configuration)'=='Debug'">$(VcpkgInstalledRoot)\debug\lib</VcpkgLibDir>
+    <VcpkgBinDir Condition="'$(Configuration)'=='Debug'">$(VcpkgInstalledRoot)\debug\bin</VcpkgBinDir>
+    <VcpkgLibDir Condition="'$(VcpkgLibDir)'==''">$(VcpkgInstalledRoot)\lib</VcpkgLibDir>
+    <VcpkgBinDir Condition="'$(VcpkgBinDir)'==''">$(VcpkgInstalledRoot)\bin</VcpkgBinDir>
+
+    <!-- vcpkg's RmlUi port currently installs lowercase rmlui.lib/rmlui.dll. -->
+    <RmlUiLibraryName Condition="Exists('$(VcpkgLibDir)\rmlui.lib')">rmlui.lib</RmlUiLibraryName>
+    <RmlUiLibraryName Condition="'$(RmlUiLibraryName)'=='' And Exists('$(VcpkgLibDir)\RmlUi.lib')">RmlUi.lib</RmlUiLibraryName>
+    <RmlUiLibraryName Condition="'$(RmlUiLibraryName)'=='' And Exists('$(VcpkgLibDir)\RmlCore.lib')">RmlCore.lib</RmlUiLibraryName>
+
+    <!-- RmlUi code is compiled only when the import library is actually present. -->
+    <WithRmlUiDefine Condition="'$(RmlUiLibraryName)'!=''">WITH_RMLUI=1</WithRmlUiDefine>
+    <WithRmlUiDefine Condition="'$(RmlUiLibraryName)'==''">WITH_RMLUI=0</WithRmlUiDefine>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>
+        $(VcpkgInstalledRoot)\include\luajit;
+        $(VcpkgInstalledRoot)\include;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>
+        SOL_ALL_SAFETIES_ON=1;
+        SOL_LUAJIT=1;
+        $(WithRmlUiDefine);
+        %(PreprocessorDefinitions)
+      </PreprocessorDefinitions>
+    </ClCompile>
+
+    <Link>
+      <AdditionalLibraryDirectories>
+        $(VcpkgLibDir);
+        %(AdditionalLibraryDirectories)
+      </AdditionalLibraryDirectories>
+      <AdditionalDependencies>
+        lua51.lib;
+        $(RmlUiLibraryName);
+        %(AdditionalDependencies)
+      </AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <!-- Do not use PostBuildEvent here. The .vcxproj also emits an SFML PostBuildEvent;
+       this standalone target runs in addition to it and copies DLLs to the actual exe dir. -->
+  <Target Name="CopyVcpkgRuntimeDlls"
+          AfterTargets="Build"
+          Condition="'$(Platform)'=='x64' And Exists('$(VcpkgBinDir)')">
+    <ItemGroup>
+      <VcpkgRuntimeDll Include="$(VcpkgBinDir)\*.dll" />
+    </ItemGroup>
+    <Message Importance="High"
+             Text="Copying vcpkg runtime DLLs from $(VcpkgBinDir) to $(TargetDir)" />
+    <Copy SourceFiles="@(VcpkgRuntimeDll)"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>
+'''
+
+    with open(props_path, "w", encoding="utf-8", newline="\r\n") as f:
+        f.write(content)
 
 
 # ──────────────────────────────────────────────
@@ -708,6 +795,11 @@ def generate_sln():
 # Main
 # ──────────────────────────────────────────────
 def main():
+    if GENERATE_VCPKG_LUA_PROPS and USE_VCPKG_LUA_PROPS:
+        print("Generating vcpkg property sheet...")
+        generate_vcpkg_lua_props()
+        print(f"  {VCPKG_LUA_PROPS_FILE}")
+
     print(f"Scanning project files in {PROJECT_DIR}...")
 
     files = scan_files(PROJECT_DIR)

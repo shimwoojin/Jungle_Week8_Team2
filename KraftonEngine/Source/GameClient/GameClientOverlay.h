@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Engine/Render/Viewport/D3D11ViewportPresenter.h"
+
 class FRenderer;
 class FWindowsWindow;
 class UGameClientEngine;
@@ -23,6 +25,8 @@ private:
 private:
 	UGameClientEngine* Engine = nullptr;
 	FWindowsWindow* Window = nullptr;
+	FD3D11ViewportPresenter D3D11ViewportPresenter;
 	bool bInitialized = false;
 	bool bShowingOptions = false;
+	bool bUseD3D11ViewportPresenter = false;
 };
