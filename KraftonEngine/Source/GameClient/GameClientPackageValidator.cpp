@@ -139,6 +139,7 @@ bool FGameClientPackageValidator::ValidateBeforeEngineInit(const FGameClientSett
 	bOk &= RequireDirectory("Asset/Scene", OutErrors);
 	bOk &= RequireDirectory("LuaScripts", OutErrors);
 	bOk &= RequireDirectory("Shaders", OutErrors);
+	bOk &= RequireDirectory("Asset/UI", OutErrors);
 
 	bOk &= RequireFile(Settings.StartupScenePackagePath, OutErrors);
 	bOk &= RequireFile("Shaders/Geometry/Primitive.hlsl", OutErrors);

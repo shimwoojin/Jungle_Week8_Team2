@@ -14,6 +14,9 @@
 #include "Object/Object.h"
 #include "SimpleJSON/json.hpp"
 #include "Viewport/Viewport.h"
+#include "Viewport/GameViewportClient.h"
+#include "Viewport/ViewportPresentationTypes.h"
+#include "Engine/UI/ImGui/ImGuiViewportPresenter.h"
 
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx11.h"
@@ -141,6 +144,10 @@ bool FGameClientOverlay::Initialize(
 		Renderer.GetFD3DDevice().GetDevice(),
 		Renderer.GetFD3DDevice().GetDeviceContext());
 
+	bUseD3D11ViewportPresenter = D3D11ViewportPresenter.Initialize(
+		Renderer.GetFD3DDevice().GetDevice(),
+		Renderer.GetFD3DDevice().GetDeviceContext());
+
 	bInitialized = true;
 	return true;
 }
@@ -151,6 +158,9 @@ void FGameClientOverlay::Shutdown()
 	{
 		return;
 	}
+
+	D3D11ViewportPresenter.Release();
+	bUseD3D11ViewportPresenter = false;
 
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
@@ -175,9 +185,23 @@ void FGameClientOverlay::Update(float DeltaTime)
 	{
 		bShowingOptions = false;
 	}
-	InputSystem::Get().SetGuiMouseCapture(bMenuOpen || IO.WantCaptureMouse);
-	InputSystem::Get().SetGuiKeyboardCapture(bMenuOpen || IO.WantCaptureKeyboard);
-	InputSystem::Get().SetGuiTextInputCapture(IO.WantTextInput);
+
+	bool bGameUiWantsMouse = false;
+	bool bGameUiWantsKeyboard = false;
+	if (Engine)
+	{
+		if (UGameViewportClient* ViewportClient = Engine->GetGameViewport().GetViewportClient())
+		{
+			FGameUiSystem& GameUi = ViewportClient->GetGameUiSystem();
+			GameUi.SetPauseMenuVisible(bMenuOpen);
+			bGameUiWantsMouse = GameUi.WantsMouse();
+			bGameUiWantsKeyboard = GameUi.WantsKeyboard();
+		}
+	}
+
+	InputSystem::Get().SetGuiMouseCapture(bMenuOpen || bGameUiWantsMouse || IO.WantCaptureMouse);
+	InputSystem::Get().SetGuiKeyboardCapture(bMenuOpen || bGameUiWantsKeyboard || IO.WantCaptureKeyboard);
+	InputSystem::Get().SetGuiTextInputCapture(bGameUiWantsKeyboard || IO.WantTextInput);
 }
 
 void FGameClientOverlay::Render(float DeltaTime)
@@ -187,16 +211,53 @@ void FGameClientOverlay::Render(float DeltaTime)
 		return;
 	}
 
+	bool bGameUiAvailable = false;
+	auto RenderGameUi = [&]()
+	{
+		if (!Engine)
+		{
+			return;
+		}
+		UGameViewportClient* ViewportClient = Engine->GetGameViewport().GetViewportClient();
+		if (!ViewportClient)
+		{
+			return;
+		}
+		FGameUiSystem& GameUi = ViewportClient->GetGameUiSystem();
+		GameUi.SetPauseMenuVisible(Engine->IsPauseMenuOpen());
+		GameUi.Update(DeltaTime);
+		GameUi.Render();
+		bGameUiAvailable = GameUi.IsAvailable();
+	};
+
+	if (bUseD3D11ViewportPresenter)
+	{
+		DrawViewport();
+		RenderGameUi();
+	}
+
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
-	DrawViewport();
+	if (!bUseD3D11ViewportPresenter)
+	{
+		DrawViewport();
+	}
+
 	DrawOverlay(DeltaTime);
-	DrawPauseMenu();
+	if (!bGameUiAvailable)
+	{
+		DrawPauseMenu();
+	}
 
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+	if (!bUseD3D11ViewportPresenter)
+	{
+		RenderGameUi();
+	}
 }
 
 void FGameClientOverlay::DrawViewport()
@@ -212,21 +273,26 @@ void FGameClientOverlay::DrawViewport()
 		return;
 	}
 
-	ImGuiViewport* MainViewport = ImGui::GetMainViewport();
-	if (!MainViewport)
+	const FViewportPresentationRect PresentationRect(
+		0.0f,
+		0.0f,
+		Window ? static_cast<float>(Window->GetWidth()) : static_cast<float>(Viewport->GetWidth()),
+		Window ? static_cast<float>(Window->GetHeight()) : static_cast<float>(Viewport->GetHeight()));
+
+	if (UGameViewportClient* ViewportClient = Engine->GetGameViewport().GetViewportClient())
 	{
+		ViewportClient->SetPresentationRect(PresentationRect);
+		ViewportClient->SetCursorClipRect(PresentationRect);
+	}
+
+	if (bUseD3D11ViewportPresenter)
+	{
+		D3D11ViewportPresenter.SetRenderTargetSize(PresentationRect.Width, PresentationRect.Height);
+		D3D11ViewportPresenter.DrawViewport(Viewport, PresentationRect);
 		return;
 	}
 
-	const ImVec2 Min = MainViewport->Pos;
-	const ImVec2 Max(
-		MainViewport->Pos.x + MainViewport->Size.x,
-		MainViewport->Pos.y + MainViewport->Size.y);
-
-	ImGui::GetBackgroundDrawList(MainViewport)->AddImage(
-		reinterpret_cast<ImTextureID>(Viewport->GetSRV()),
-		Min,
-		Max);
+	FImGuiViewportPresenter::DrawInMainBackground(Viewport, PresentationRect);
 }
 
 void FGameClientOverlay::DrawOverlay(float DeltaTime)

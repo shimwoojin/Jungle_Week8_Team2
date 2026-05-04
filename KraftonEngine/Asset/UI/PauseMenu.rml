@@ -1,0 +1,26 @@
+<rml>
+<head>
+    <title>Pause Menu</title>
+    <link type="text/rcss" href="Common.rcss"/>
+    <link type="text/rcss" href="PauseMenu.rcss"/>
+</head>
+<body>
+    <div id="dim">
+        <div id="panel">
+            <div id="main-panel">
+                <h1>MENU</h1>
+                <button id="continue">계속</button>
+                <button id="options">옵션</button>
+                <button id="restart">다시시작</button>
+                <button id="exit">종료</button>
+            </div>
+            <div id="options-panel">
+                <h1>GRAPHICS</h1>
+                <button id="toggle-fxaa">FXAA</button>
+                <button id="toggle-fullscreen">전체화면</button>
+                <button id="back">뒤로</button>
+            </div>
+        </div>
+    </div>
+</body>
+</rml>

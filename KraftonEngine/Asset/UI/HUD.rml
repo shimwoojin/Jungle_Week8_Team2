@@ -1,0 +1,18 @@
+<rml>
+<head>
+    <title>HUD</title>
+    <link type="text/rcss" href="Common.rcss"/>
+    <link type="text/rcss" href="HUD.rcss"/>
+</head>
+<body>
+    <div id="hud-root">
+        <div id="health-panel">
+            <span id="health-label">HP</span>
+            <div id="health-bar-bg">
+                <div id="health-bar"></div>
+            </div>
+        </div>
+        <div id="crosshair">+</div>
+    </div>
+</body>
+</rml>

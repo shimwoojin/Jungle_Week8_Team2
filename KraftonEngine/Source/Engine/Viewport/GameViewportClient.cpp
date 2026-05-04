@@ -39,11 +39,13 @@ void UGameViewportClient::OnBeginPIE(UCameraComponent* InitialTarget, FViewport*
 
 void UGameViewportClient::OnEndPIE()
 {
+	GameUiSystem.Shutdown();
 	SetPossessed(false);
 	SetPlayerController(nullptr);
 	UnPossess();
 	ResetInputState();
 	bHasCursorClipRect = false;
+	ClearPresentationRect();
 	Viewport = nullptr;
 }
 
@@ -52,9 +54,29 @@ void UGameViewportClient::SetPIEPossessedInputEnabled(bool bEnabled)
 	SetPossessed(bEnabled);
 }
 
-void UGameViewportClient::SetCursorClipRect(const FRect& InViewportScreenRect)
+void UGameViewportClient::SetPresentationRect(const FViewportPresentationRect& InRect)
 {
-	if (InViewportScreenRect.Width <= 1.0f || InViewportScreenRect.Height <= 1.0f)
+	PresentationRect = InRect;
+}
+
+void UGameViewportClient::ClearPresentationRect()
+{
+	PresentationRect = FViewportPresentationRect();
+}
+
+bool UGameViewportClient::IsScreenPositionInsideViewport(float ScreenX, float ScreenY) const
+{
+	return PresentationRect.Contains(ScreenX, ScreenY);
+}
+
+bool UGameViewportClient::ScreenToViewportPosition(float ScreenX, float ScreenY, float& OutX, float& OutY) const
+{
+	return PresentationRect.ScreenToLocal(ScreenX, ScreenY, OutX, OutY);
+}
+
+void UGameViewportClient::SetCursorClipRect(const FViewportPresentationRect& InViewportScreenRect)
+{
+	if (!InViewportScreenRect.IsValid())
 	{
 		bHasCursorClipRect = false;
 		if (bCursorCaptured)
@@ -66,8 +88,8 @@ void UGameViewportClient::SetCursorClipRect(const FRect& InViewportScreenRect)
 
 	CursorClipClientRect.left = static_cast<LONG>(InViewportScreenRect.X);
 	CursorClipClientRect.top = static_cast<LONG>(InViewportScreenRect.Y);
-	CursorClipClientRect.right = static_cast<LONG>(InViewportScreenRect.X + InViewportScreenRect.Width);
-	CursorClipClientRect.bottom = static_cast<LONG>(InViewportScreenRect.Y + InViewportScreenRect.Height);
+	CursorClipClientRect.right = static_cast<LONG>(InViewportScreenRect.Right());
+	CursorClipClientRect.bottom = static_cast<LONG>(InViewportScreenRect.Bottom());
 	bHasCursorClipRect = CursorClipClientRect.right > CursorClipClientRect.left
 		&& CursorClipClientRect.bottom > CursorClipClientRect.top;
 
@@ -75,6 +97,15 @@ void UGameViewportClient::SetCursorClipRect(const FRect& InViewportScreenRect)
 	{
 		ApplyCursorClip();
 	}
+}
+
+void UGameViewportClient::SetCursorClipRect(const FRect& InViewportScreenRect)
+{
+	SetCursorClipRect(FViewportPresentationRect(
+		InViewportScreenRect.X,
+		InViewportScreenRect.Y,
+		InViewportScreenRect.Width,
+		InViewportScreenRect.Height));
 }
 
 void UGameViewportClient::SetPossessed(bool bPossessed)

@@ -136,6 +136,7 @@ FGamePackageValidationResult FGamePackageValidator::Validate(
 	RequireDirectory(PackageRoot, "LuaScripts", Result);
 	RequireDirectory(PackageRoot, "Data", Result);
 	RequireDirectory(PackageRoot, "Shaders", Result);
+	RequireDirectory(PackageRoot, "Asset/UI", Result);
 	RequireDirectory(PackageRoot, "Saves/Logs", Result);
 	RequireDirectory(PackageRoot, "Saves/Dump", Result);
 

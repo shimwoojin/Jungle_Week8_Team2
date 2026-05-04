@@ -1,10 +1,12 @@
-﻿#include "ObjViewer/ObjViewerViewportClient.h"
+#include "ObjViewer/ObjViewerViewportClient.h"
 
 #include "Engine/Input/InputSystem.h"
 #include "Engine/Input/InputFrame.h"
 #include "Engine/Runtime/WindowsWindow.h"
 #include "Component/CameraComponent.h"
 #include "Viewport/Viewport.h"
+#include "Viewport/ViewportPresentationTypes.h"
+#include "Engine/UI/ImGui/ImGuiViewportPresenter.h"
 #include "Math/MathUtils.h"
 #include "ImGui/imgui.h"
 
@@ -152,12 +154,9 @@ void FObjViewerViewportClient::SetViewportRect(float X, float Y, float Width, fl
 
 void FObjViewerViewportClient::RenderViewportImage()
 {
-	if (!Viewport || !Viewport->GetSRV()) return;
 	if (ViewportWidth <= 0 || ViewportHeight <= 0) return;
 
-	ImDrawList* DrawList = ImGui::GetWindowDrawList();
-	ImVec2 Min(ViewportX, ViewportY);
-	ImVec2 Max(ViewportX + ViewportWidth, ViewportY + ViewportHeight);
-
-	DrawList->AddImage((ImTextureID)Viewport->GetSRV(), Min, Max);
+	FImGuiViewportPresenter::DrawInCurrentWindow(
+		Viewport,
+		FViewportPresentationRect(ViewportX, ViewportY, ViewportWidth, ViewportHeight));
 }
