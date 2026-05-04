@@ -1149,7 +1149,7 @@
           },
           "Generate Overlap Events" : true,
           "Location" : [0.000000, 4.000000, 1.000000],
-          "Rotation" : [-0.000000, 0.000000, 0.000000],
+          "Rotation" : [0.000000, 0.000000, 0.000000],
           "Scale" : [1.000000, 1.000000, 1.000000],
           "Static Mesh" : "Data/Floor/grass.obj",
           "Two Sided Shadow" : false,
@@ -1174,7 +1174,7 @@
           },
           "Generate Overlap Events" : true,
           "Location" : [1.000000, 4.000000, 1.000000],
-          "Rotation" : [-0.000000, 0.000000, 0.000000],
+          "Rotation" : [0.000000, 0.000000, 0.000000],
           "Scale" : [1.000000, 1.000000, 1.000000],
           "Static Mesh" : "Data/Floor/Road.obj",
           "Two Sided Shadow" : false,
@@ -1199,7 +1199,7 @@
           },
           "Generate Overlap Events" : true,
           "Location" : [0.000000, 5.000000, 1.000000],
-          "Rotation" : [-0.000000, 0.000000, 0.000000],
+          "Rotation" : [0.000000, 0.000000, 0.000000],
           "Scale" : [1.000000, 1.000000, 1.000000],
           "Static Mesh" : "Data/Floor/grass.obj",
           "Two Sided Shadow" : false,
@@ -1224,9 +1224,38 @@
           },
           "Generate Overlap Events" : true,
           "Location" : [1.000000, 5.000000, 1.000000],
-          "Rotation" : [-0.000000, 0.000000, 0.000000],
+          "Rotation" : [0.000000, 0.000000, 0.000000],
           "Scale" : [1.000000, 1.000000, 1.000000],
           "Static Mesh" : "Data/Floor/Road.obj",
+          "Two Sided Shadow" : false,
+          "Visible" : true,
+          "bEditorOnly" : false,
+          "bTickEnable" : true
+        }
+      },
+      "bVisible" : true
+    }, {
+      "ActorUUID" : 860,
+      "ClassName" : "AActor",
+      "NonSceneComponents" : [{
+          "ClassName" : "ULuaScriptComponent",
+          "Properties" : {
+            "ScriptPath" : "Game/IntroCameraController.lua",
+            "bEditorOnly" : false,
+            "bTickEnable" : true
+          }
+        }],
+      "RootComponent" : {
+        "Children" : [],
+        "ClassName" : "UStaticMeshComponent",
+        "Properties" : {
+          "Blocks Movement" : true,
+          "Cast Shadow" : true,
+          "Generate Overlap Events" : true,
+          "Location" : [15.512953, 16.158907, -0.500002],
+          "Rotation" : [0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "Static Mesh" : "None",
           "Two Sided Shadow" : false,
           "Visible" : true,
           "bEditorOnly" : false,
