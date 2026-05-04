@@ -5,23 +5,7 @@
       "NonSceneComponents" : [],
       "PrimitiveKey" : "102",
       "RootComponent" : {
-        "Children" : [{
-            "Children" : [],
-            "ClassName" : "UBoxComponent",
-            "Properties" : {
-              "Blocks Movement" : true,
-              "Box Extent" : [0.500000, 0.500000, 0.500000],
-              "Cast Shadow" : true,
-              "Generate Overlap Events" : true,
-              "Location" : [0.000000, 0.000000, 0.000000],
-              "Rotation" : [0.000000, 0.000000, 0.000000],
-              "Scale" : [1.000000, 1.000000, 1.000000],
-              "Two Sided Shadow" : false,
-              "Visible" : true,
-              "bEditorOnly" : false,
-              "bTickEnable" : true
-            }
-          }],
+        "Children" : [],
         "ClassName" : "UStaticMeshComponent",
         "Properties" : {
           "Blocks Movement" : true,
@@ -156,7 +140,7 @@
           "ClassName" : "UHopMovementComponent",
           "Properties" : {
             "Acceleration" : 2048.000000,
-            "Auto Register Updated" : true,
+            "Auto Register Updated" : false,
             "Braking Deceleration" : 4096.000000,
             "Controller Input Priority" : 10,
             "Dash Duration" : 0.150000,
@@ -172,8 +156,9 @@
             "Receive Controller Input" : true,
             "Reset Hop When Idle" : true,
             "Simulating" : true,
-            "Updated Component" : "",
+            "Updated Component" : "Root",
             "Velocity" : [0.000000, 0.000000, 0.000000],
+            "Visual Hop Component" : "Root/0",
             "bEditorOnly" : false,
             "bTickEnable" : true
           }
@@ -219,6 +204,25 @@
       "RootComponent" : {
         "Children" : [{
             "Children" : [],
+            "ClassName" : "UStaticMeshComponent",
+            "Properties" : {
+              "Blocks Movement" : true,
+              "Cast Shadow" : true,
+              "Element 0" : {
+                "Path" : "Asset/Materials/Auto/ChickenBaseColor.mat"
+              },
+              "Generate Overlap Events" : true,
+              "Location" : [0.000000, 0.000000, 0.000000],
+              "Rotation" : [0.000000, 0.000000, 0.000000],
+              "Scale" : [0.402405, 0.402405, 0.402405],
+              "Static Mesh" : "Data/Chicken/Chicken.obj",
+              "Two Sided Shadow" : false,
+              "Visible" : true,
+              "bEditorOnly" : false,
+              "bTickEnable" : true
+            }
+          }, {
+            "Children" : [],
             "ClassName" : "UBoxComponent",
             "Properties" : {
               "Blocks Movement" : true,
@@ -227,27 +231,18 @@
               "Generate Overlap Events" : true,
               "Location" : [0.000000, 0.000000, 0.000000],
               "Rotation" : [0.000000, 0.000000, 0.000000],
-              "Scale" : [1.000000, 1.000000, 1.000000],
+              "Scale" : [0.402405, 0.402405, 0.402405],
               "Two Sided Shadow" : false,
               "Visible" : true,
               "bEditorOnly" : false,
               "bTickEnable" : true
             }
           }],
-        "ClassName" : "UStaticMeshComponent",
+        "ClassName" : "USceneComponent",
         "Properties" : {
-          "Blocks Movement" : true,
-          "Cast Shadow" : true,
-          "Element 0" : {
-            "Path" : "Asset/Materials/Auto/ChickenBaseColor.mat"
-          },
-          "Generate Overlap Events" : true,
-          "Location" : [0.000000, 0.501545, -0.187260],
+          "Location" : [0.000000, 0.501545, -0.251383],
           "Rotation" : [0.000000, 0.000000, 0.000000],
-          "Scale" : [0.402405, 0.402405, 0.402405],
-          "Static Mesh" : "Data/Chicken/Chicken.obj",
-          "Two Sided Shadow" : false,
-          "Visible" : true,
+          "Scale" : [1.000000, 1.000000, 1.000000],
           "bEditorOnly" : false,
           "bTickEnable" : true
         }
@@ -1297,14 +1292,14 @@
   "ContextName" : "Default",
   "Name" : "Default",
   "PerspectiveCamera" : {
-    "AspectRatio" : 1.846276,
+    "AspectRatio" : 1.642559,
     "FOV" : 1.047198,
     "FarClip" : 1000.000000,
-    "Location" : [-0.969871, -2.254036, -0.209546],
+    "Location" : [-2.648566, 0.221009, -0.210721],
     "NearClip" : 0.100000,
     "OrthoWidth" : 10.000000,
     "Orthographic" : false,
-    "Rotation" : [0.000000, 3.528100, 47.798309]
+    "Rotation" : [-0.000000, 8.777945, 14.499489]
   },
   "Primitives" : {
     "102" : {

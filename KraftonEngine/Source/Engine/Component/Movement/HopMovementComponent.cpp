@@ -89,20 +89,25 @@ void UHopMovementComponent::BeginPlay()
 	LastMovementInput = FVector::ZeroVector;
 	Velocity = FlattenOnWorldUp(Velocity);
 	bSimulating = true;
+	bHasLockedGameplayPlaneZ = false;
+	CaptureGameplayPlane();
+	ResolveVisualHopComponent(true);
+	LockUpdatedComponentToGameplayPlane();
 }
 
 void UHopMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction& ThisTickFunction)
 {
 	UMovementComponent::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	// TODO: Split hop bobbing from root/collision movement. The Pawn root should stay as
-	// the gameplay/camera target, while a visual component handles the vertical bob.
 	USceneComponent* UpdatedSceneComponent = GetUpdatedComponent();
 	if (!bSimulating || !UpdatedSceneComponent || DeltaTime <= 0.0f)
 	{
+		LockUpdatedComponentToGameplayPlane();
 		PendingMovementInput = FVector::ZeroVector;
 		return;
 	}
+	CaptureGameplayPlane();
+	LockUpdatedComponentToGameplayPlane();
 
 	const FVector RawInput = ConsumeFrameMovementInput();
 	const FVector MoveInput = ClampInputMagnitude(RawInput);
@@ -112,6 +117,7 @@ void UHopMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	{
 		DashTimeRemaining -= DeltaTime;
 		Velocity = FlattenOnWorldUp(Velocity);
+		LockUpdatedComponentToGameplayPlane();
 	}
 	else
 	{
@@ -144,11 +150,9 @@ void UHopMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 			HopElapsedTime = 0.0f;
 		}
 
-		const float HopDelta = NewHopOffset - AppliedHopOffset;
 		AppliedHopOffset = NewHopOffset;
 
 		const FVector HorizontalDelta = Velocity * DeltaTime;
-		const FVector VerticalDelta(0.0f, 0.0f, HopDelta);
 
 		if (!HorizontalDelta.IsNearlyZero())
 		{
@@ -164,7 +168,7 @@ void UHopMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 			}
 
 			FVector AppliedHorizontalDelta;
-			if (SafeMoveUpdatedComponentPreserveInputAxes(HorizontalDelta, SlideForward, SlideRight, &AppliedHorizontalDelta, nullptr))
+			if (SafeMoveUpdatedComponentPreserveInputAxes2D(HorizontalDelta, SlideForward, SlideRight, &AppliedHorizontalDelta, nullptr))
 			{
 				Velocity = DeltaTime > 0.0f ? FlattenOnWorldUp(AppliedHorizontalDelta) / DeltaTime : FVector::ZeroVector;
 			}
@@ -174,12 +178,8 @@ void UHopMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 			}
 		}
 
-		// 임시 유지: 현재 구조에서는 hop bobbing이 UpdatedComponent에 직접 적용된다.
-		// 장기적으로는 충돌 root가 아니라 visual child component에만 적용하는 편이 맞다.
-		if (!VerticalDelta.IsNearlyZero())
-		{
-			UpdatedSceneComponent->SetWorldLocation(UpdatedSceneComponent->GetWorldLocation() + VerticalDelta);
-		}
+		LockUpdatedComponentToGameplayPlane();
+		ApplyVisualHopOffset(NewHopOffset);
 	}
 
 }
@@ -197,6 +197,7 @@ void UHopMovementComponent::GetEditableProperties(TArray<FPropertyDescriptor>& O
 	OutProps.push_back({ "Hop Frequency", EPropertyType::Float, &HopFrequency, 0.0f, KMaxReasonableHopFrequency, 0.1f });
 	OutProps.push_back({ "Hop Only When Moving", EPropertyType::Bool, &bHopOnlyWhenMoving });
 	OutProps.push_back({ "Reset Hop When Idle", EPropertyType::Bool, &bResetHopWhenIdle });
+	OutProps.push_back({ "Visual Hop Component", EPropertyType::SceneComponentRef, &VisualHopComponentPath });
 	OutProps.push_back({ "Simulating", EPropertyType::Bool, &bSimulating });	
 	OutProps.push_back({ "Dash Speed", EPropertyType::Float, &DashSpeed, 0.0f, KMaxReasonableSpeed, 1.0f });
 	OutProps.push_back({ "Dash Duration", EPropertyType::Float, &DashDuration, 0.0f, 5.0f, 0.01f });
@@ -222,6 +223,7 @@ void UHopMovementComponent::Serialize(FArchive& Ar)
 	Ar << bResetHopWhenIdle;
 	Ar << DashSpeed;
 	Ar << DashDuration;
+	Ar << VisualHopComponentPath;
 	if (Ar.IsLoading())
 	{
 		MovementInput = FVector::ZeroVector;
@@ -231,6 +233,19 @@ void UHopMovementComponent::Serialize(FArchive& Ar)
 		AppliedHopOffset = 0.0f;
 		DashTimeRemaining = 0.0f;          // ★ 추가
 		Velocity = FlattenOnWorldUp(Velocity);
+		VisualHopComponent = nullptr;
+		bHasVisualHopBaseRelativeLocation = false;
+		bHasLockedGameplayPlaneZ = false;
+	}
+}
+
+void UHopMovementComponent::PostEditProperty(const char* PropertyName)
+{
+	UMovementComponent::PostEditProperty(PropertyName);
+
+	if (std::strcmp(PropertyName, "Visual Hop Component") == 0)
+	{
+		ResolveVisualHopComponent(true);
 	}
 }
 
@@ -321,18 +336,96 @@ float UHopMovementComponent::GetEffectiveMoveSpeed() const
 
 void UHopMovementComponent::RemoveAppliedHopOffset()
 {
+	if (ResolveVisualHopComponent(false) && bHasVisualHopBaseRelativeLocation)
+	{
+		VisualHopComponent->SetRelativeLocation(VisualHopBaseRelativeLocation);
+	}
+
 	if (std::fabs(AppliedHopOffset) <= KVelocityStopTolerance)
 	{
 		AppliedHopOffset = 0.0f;
+		LockUpdatedComponentToGameplayPlane();
+		return;
+	}
+
+	AppliedHopOffset = 0.0f;
+	LockUpdatedComponentToGameplayPlane();
+}
+
+void UHopMovementComponent::CaptureGameplayPlane()
+{
+	if (bHasLockedGameplayPlaneZ)
+	{
 		return;
 	}
 
 	if (USceneComponent* UpdatedSceneComponent = GetUpdatedComponent())
 	{
-		UpdatedSceneComponent->SetWorldLocation(
-			UpdatedSceneComponent->GetWorldLocation() + FVector(0.0f, 0.0f, -AppliedHopOffset));
+		LockedGameplayPlaneZ = UpdatedSceneComponent->GetWorldLocation().Z;
+		bHasLockedGameplayPlaneZ = true;
 	}
-	AppliedHopOffset = 0.0f;
+}
+
+void UHopMovementComponent::LockUpdatedComponentToGameplayPlane()
+{
+	if (!bHasLockedGameplayPlaneZ)
+	{
+		CaptureGameplayPlane();
+	}
+
+	USceneComponent* UpdatedSceneComponent = GetUpdatedComponent();
+	if (!UpdatedSceneComponent || !bHasLockedGameplayPlaneZ)
+	{
+		return;
+	}
+
+	FVector Location = UpdatedSceneComponent->GetWorldLocation();
+	if (std::fabs(Location.Z - LockedGameplayPlaneZ) <= KVelocityStopTolerance)
+	{
+		return;
+	}
+
+	Location.Z = LockedGameplayPlaneZ;
+	UpdatedSceneComponent->SetWorldLocation(Location);
+}
+
+bool UHopMovementComponent::ResolveVisualHopComponent(bool bResetBaseLocation)
+{
+	if (!VisualHopComponentPath.empty())
+	{
+		VisualHopComponent = FindUpdatedComponentByPath(VisualHopComponentPath);
+	}
+	else
+	{
+		VisualHopComponent = nullptr;
+	}
+
+	if (!VisualHopComponent || VisualHopComponent == GetUpdatedComponent())
+	{
+		VisualHopComponent = nullptr;
+		bHasVisualHopBaseRelativeLocation = false;
+		return false;
+	}
+
+	if (bResetBaseLocation || !bHasVisualHopBaseRelativeLocation)
+	{
+		VisualHopBaseRelativeLocation = VisualHopComponent->GetRelativeLocation();
+		bHasVisualHopBaseRelativeLocation = true;
+	}
+
+	return true;
+}
+
+void UHopMovementComponent::ApplyVisualHopOffset(float NewHopOffset)
+{
+	if (!ResolveVisualHopComponent(false) || !bHasVisualHopBaseRelativeLocation)
+	{
+		return;
+	}
+
+	FVector VisualLocation = VisualHopBaseRelativeLocation;
+	VisualLocation.Z += NewHopOffset;
+	VisualHopComponent->SetRelativeLocation(VisualLocation);
 }
 
 void UHopMovementComponent::StopMovementImmediately()

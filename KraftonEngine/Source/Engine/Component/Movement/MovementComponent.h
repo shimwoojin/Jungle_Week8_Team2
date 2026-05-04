@@ -68,8 +68,12 @@ protected:
 	bool SafeMoveUpdatedComponentClipped(const FVector& Delta, FVector* OutAppliedDelta = nullptr, FHitResult* OutHit = nullptr);
 	bool SafeMoveUpdatedComponentPreserveAxes(const FVector& Delta, FVector* OutAppliedDelta = nullptr, FHitResult* OutHit = nullptr);
 	bool SafeMoveUpdatedComponentPreserveInputAxes(const FVector& Delta, const FVector& InputForward, const FVector& InputRight, FVector* OutAppliedDelta = nullptr, FHitResult* OutHit = nullptr);
+	bool SafeMoveUpdatedComponentPreserveInputAxes2D(const FVector& Delta, const FVector& InputForward, const FVector& InputRight, FVector* OutAppliedDelta = nullptr, FHitResult* OutHit = nullptr);
 	bool IsUpdatedComponentBlockingOverlapped(FHitResult* OutHit = nullptr) const;
 	bool TryResolveBlockingOverlap(const FVector& DesiredDelta, const FVector& InputForward, const FVector& InputRight, FVector* OutAppliedDelta = nullptr, FHitResult* OutHit = nullptr);
+	bool SafeMoveUpdatedComponent2D(const FVector& Delta, float PlaneZ, FHitResult* OutHit = nullptr);
+	bool SafeMoveUpdatedComponentClipped2D(const FVector& Delta, float PlaneZ, FVector* OutAppliedDelta = nullptr, FHitResult* OutHit = nullptr);
+	bool TryResolveBlockingOverlap2D(const FVector& DesiredDelta, const FVector& InputForward, const FVector& InputRight, float PlaneZ, FVector* OutAppliedDelta = nullptr, FHitResult* OutHit = nullptr);
 	void TryAutoRegisterUpdatedComponent();
 	USceneComponent* FindUpdatedComponentByPath(const FString& InPath) const;
 
