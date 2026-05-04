@@ -219,23 +219,36 @@ bool UPawnOrientationComponent::ComputeDesiredFacingYaw(float& OutYaw) const
 
 	UMovementComponent* Movement = FindBestMovementComponent();
 
-	if (Mode == EPawnFacingMode::MovementInputDirection ||
-		Mode == EPawnFacingMode::MovementDirectionWithControlFallback)
+	if (Mode == EPawnFacingMode::MovementInputDirection)
 	{
-		if (Movement && TryGetYawFromDirection(Movement->GetLastControllerWorldDirection(), MinFacingInputSize, OutYaw))
-		{
-			return true;
-		}
-
-		if (Mode == EPawnFacingMode::MovementInputDirection)
-		{
-			return false;
-		}
+		return Movement && TryGetYawFromDirection(
+			Movement->GetLastControllerWorldDirection(),
+			MinFacingInputSize,
+			OutYaw
+		);
 	}
 
 	if (Mode == EPawnFacingMode::MovementVelocityDirection)
 	{
-		return Movement && TryGetYawFromDirection(Movement->GetMovementVelocity(), MinFacingSpeed, OutYaw);
+		return Movement && TryGetYawFromDirection(
+			Movement->GetMovementVelocity(),
+			MinFacingSpeed,
+			OutYaw
+		);
+	}
+
+	if (Mode == EPawnFacingMode::MovementDirectionWithControlFallback)
+	{
+		if (Movement && TryGetYawFromDirection(
+			Movement->GetMovementVelocity(),
+			MinFacingSpeed,
+			OutYaw
+		))
+		{
+			return true;
+		}
+
+		// 속도가 없으면 아래 ControlRotationYaw fallback으로 내려갑니다.
 	}
 
 	if (Mode == EPawnFacingMode::CustomWorldDirection)
