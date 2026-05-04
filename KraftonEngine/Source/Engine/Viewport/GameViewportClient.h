@@ -3,6 +3,8 @@
 #include "Object/Object.h"
 #include "UI/SWindow.h"
 #include "Viewport/ViewportClient.h"
+#include "Viewport/ViewportPresentationTypes.h"
+#include "Engine/UI/Game/GameUiSystem.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -32,6 +34,17 @@ public:
 	void SetViewport(FViewport* InViewport) { Viewport = InViewport; }
 	FViewport* GetViewport() const { return Viewport; }
 	void SetOwnerWindow(HWND InOwnerHWnd) { OwnerHWnd = InOwnerHWnd; }
+
+	// 실제 화면에 표시되는 게임 뷰포트 영역.
+	// Standalone에서는 보통 전체 클라이언트 영역이고, Editor PIE에서는 에디터 뷰포트 패널 영역이다.
+	void SetPresentationRect(const FViewportPresentationRect& InRect);
+	void ClearPresentationRect();
+	const FViewportPresentationRect& GetPresentationRect() const { return PresentationRect; }
+	bool HasValidPresentationRect() const { return PresentationRect.IsValid(); }
+	bool IsScreenPositionInsideViewport(float ScreenX, float ScreenY) const;
+	bool ScreenToViewportPosition(float ScreenX, float ScreenY, float& OutX, float& OutY) const;
+
+	void SetCursorClipRect(const FViewportPresentationRect& InViewportScreenRect);
 	void SetCursorClipRect(const FRect& InViewportScreenRect);
 	void SetDrivingCamera(UCameraComponent* InCamera) { Possess(InCamera); }
 	UCameraComponent* GetDrivingCamera() const { return GetPossessedTarget(); }
@@ -51,12 +64,16 @@ public:
 	bool HasPossessedTarget() const { return GetPossessedTarget() != nullptr; }
 	bool Tick(float DeltaTime, FInputFrame& InputFrame);
 
+	FGameUiSystem& GetGameUiSystem() { return GameUiSystem; }
+	const FGameUiSystem& GetGameUiSystem() const { return GameUiSystem; }
+
 private:
 	bool ApplyInputToCameraOrActor(float DeltaTime, FInputFrame& InputFrame);
 	void SetCursorCaptured(bool bCaptured);
 	void ApplyCursorClip();
 
 	FViewport* Viewport = nullptr;
+	FViewportPresentationRect PresentationRect;
 	HWND OwnerHWnd = nullptr;
 	UCameraComponent* PossessedCamera = nullptr;
 	APlayerController* PlayerController = nullptr;
@@ -64,4 +81,5 @@ private:
 	bool bHasCursorClipRect = false;
 	bool bPIEPossessedInputEnabled = false;
 	bool bCursorCaptured = false;
+	FGameUiSystem GameUiSystem;
 };

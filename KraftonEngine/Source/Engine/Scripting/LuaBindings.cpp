@@ -41,4 +41,5 @@ void RegisterLuaBindings(sol::state& Lua)
 	RegisterInputBinding(Lua);
 	RegisterDelegateBinding(Lua);
 	RegisterRowManagerBinding(Lua);
+	RegisterUiBinding(Lua);
 }

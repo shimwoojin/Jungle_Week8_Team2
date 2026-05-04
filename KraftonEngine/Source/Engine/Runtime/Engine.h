@@ -9,6 +9,11 @@
 #include "Sound/SoundManager.h"
 #include <memory>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 class FWindowsWindow;
 class FTimer;
 class UCameraComponent;
@@ -30,6 +35,7 @@ public:
 	virtual void Tick(float DeltaTime);
 
 	virtual void OnWindowResized(uint32 Width, uint32 Height);
+	virtual bool HandleWindowMessage(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 
 	// Script-facing game flow requests. Base engine treats them as no-op.
 	virtual void RequestRestart() {}

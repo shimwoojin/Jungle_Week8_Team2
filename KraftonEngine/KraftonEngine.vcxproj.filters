@@ -151,6 +151,9 @@
     <Filter Include="Source\Engine\Render\Types">
       <UniqueIdentifier>{5c8a6ef8-769c-e1cf-6594-03b5821e5f57}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source\Engine\Render\Viewport">
+      <UniqueIdentifier>{deedfe9c-2ff7-ef42-65b4-4e52e589770f}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source\Engine\Resource">
       <UniqueIdentifier>{856648ae-d4d3-9a74-aa50-13bfda809bf1}</UniqueIdentifier>
     </Filter>
@@ -171,6 +174,15 @@
     </Filter>
     <Filter Include="Source\Engine\UI">
       <UniqueIdentifier>{e91ccaa5-c2ef-6d1b-0c73-22388c8418d2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Engine\UI\Game">
+      <UniqueIdentifier>{42d297eb-d356-439b-78a6-62a3f2e548e2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Engine\UI\ImGui">
+      <UniqueIdentifier>{6162097b-7746-9038-23d9-4b6db03e0183}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Engine\UI\Rml">
+      <UniqueIdentifier>{7de42dbd-7954-1e1b-14cf-5ab66b584cf1}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Engine\Viewport">
       <UniqueIdentifier>{b95fbad5-2f3a-0600-c7ff-db94055fd64b}</UniqueIdentifier>
@@ -599,6 +611,9 @@
     <ClCompile Include="Source\Engine\GameFramework\World.cpp">
       <Filter>Source\Engine\GameFramework</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Input\GameplayInputRouter.cpp">
+      <Filter>Source\Engine\Input</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Input\InputSystem.cpp">
       <Filter>Source\Engine\Input</Filter>
     </ClCompile>
@@ -827,6 +842,9 @@
     <ClCompile Include="Source\Engine\Render\Types\FrameContext.cpp">
       <Filter>Source\Engine\Render\Types</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Render\Viewport\D3D11ViewportPresenter.cpp">
+      <Filter>Source\Engine\Render\Viewport</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Resource\ResourceManager.cpp">
       <Filter>Source\Engine\Resource</Filter>
     </ClCompile>
@@ -905,6 +923,9 @@
     <ClCompile Include="Source\Engine\Scripting\LuaStaticMeshBindings.cpp">
       <Filter>Source\Engine\Scripting</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Scripting\LuaUiBindings.cpp">
+      <Filter>Source\Engine\Scripting</Filter>
+    </ClCompile>
     <ClCompile Include="Source\Engine\Scripting\LuaWorldExtendedBindings.cpp">
       <Filter>Source\Engine\Scripting</Filter>
     </ClCompile>
@@ -922,6 +943,18 @@
     </ClCompile>
     <ClCompile Include="Source\Engine\Texture\Texture2D.cpp">
       <Filter>Source\Engine\Texture</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\UI\Game\GameUiSystem.cpp">
+      <Filter>Source\Engine\UI\Game</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\UI\ImGui\ImGuiViewportPresenter.cpp">
+      <Filter>Source\Engine\UI\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\UI\Rml\RmlD3D11RenderInterface.cpp">
+      <Filter>Source\Engine\UI\Rml</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\UI\Rml\RmlWin32SystemInterface.cpp">
+      <Filter>Source\Engine\UI\Rml</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\UI\SSplitter.cpp">
       <Filter>Source\Engine\UI</Filter>
@@ -1346,6 +1379,12 @@
     <ClInclude Include="Source\Engine\GameFramework\WorldContext.h">
       <Filter>Source\Engine\GameFramework</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Input\GameplayInputRouter.h">
+      <Filter>Source\Engine\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Input\InputFrame.h">
+      <Filter>Source\Engine\Input</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Input\InputSystem.h">
       <Filter>Source\Engine\Input</Filter>
     </ClInclude>
@@ -1643,6 +1682,9 @@
     <ClInclude Include="Source\Engine\Render\Types\ViewTypes.h">
       <Filter>Source\Engine\Render\Types</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Render\Viewport\D3D11ViewportPresenter.h">
+      <Filter>Source\Engine\Render\Viewport</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\Resource\ResourceManager.h">
       <Filter>Source\Engine\Resource</Filter>
     </ClInclude>
@@ -1727,6 +1769,24 @@
     <ClInclude Include="Source\Engine\Texture\Texture2D.h">
       <Filter>Source\Engine\Texture</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\UI\Game\GameUiSystem.h">
+      <Filter>Source\Engine\UI\Game</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\UI\ImGui\ImGuiViewportPresenter.h">
+      <Filter>Source\Engine\UI\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\UI\Rml\RmlD3D11RenderInterface.h">
+      <Filter>Source\Engine\UI\Rml</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\UI\Rml\RmlUiConfig.h">
+      <Filter>Source\Engine\UI\Rml</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\UI\Rml\RmlUiWindowsMacroGuard.h">
+      <Filter>Source\Engine\UI\Rml</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\UI\Rml\RmlWin32SystemInterface.h">
+      <Filter>Source\Engine\UI\Rml</Filter>
+    </ClInclude>
     <ClInclude Include="Source\Engine\UI\SSplitter.h">
       <Filter>Source\Engine\UI</Filter>
     </ClInclude>
@@ -1743,6 +1803,9 @@
       <Filter>Source\Engine\Viewport</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Viewport\ViewportClient.h">
+      <Filter>Source\Engine\Viewport</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Viewport\ViewportPresentationTypes.h">
       <Filter>Source\Engine\Viewport</Filter>
     </ClInclude>
     <ClInclude Include="Source\GameClient\GameCameraManager.h">

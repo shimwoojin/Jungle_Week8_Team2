@@ -1,4 +1,4 @@
-﻿#include "Editor/Viewport/EditorViewportClient.h"
+#include "Editor/Viewport/EditorViewportClient.h"
 
 #include "Editor/UI/EditorConsoleWidget.h"
 #include "Editor/Subsystem/OverlayStatSystem.h"
@@ -29,6 +29,8 @@ UWorld* FEditorViewportClient::GetWorld() const
 #include "GameFramework/AActor.h"
 #include "GameFramework/PlayerController.h"
 #include "Viewport/GameViewportClient.h"
+#include "Engine/UI/ImGui/ImGuiViewportPresenter.h"
+#include "Viewport/ViewportPresentationTypes.h"
 #include "ImGui/imgui.h"
 #include "Component/Light/LightComponentBase.h"
 
@@ -180,7 +182,18 @@ void FEditorViewportClient::Tick(float DeltaTime)
                     UCameraComponent* GameplayCamera = World ? World->ResolveGameplayViewCamera(Controller) : nullptr;
                     GameViewportClient->SetPlayerController(Controller);
                     GameViewportClient->SetDrivingCamera(GameplayCamera ? GameplayCamera : Camera);
-                    GameViewportClient->SetViewport(Viewport);
+                    if (GameViewportClient->GetViewport() != Viewport)
+                    {
+                        GameViewportClient->SetViewport(Viewport);
+                    }
+                    const FRect& PresentedRect = GetViewportScreenRect();
+                    const FViewportPresentationRect PresentationRect(
+                        PresentedRect.X,
+                        PresentedRect.Y,
+                        PresentedRect.Width,
+                        PresentedRect.Height);
+                    GameViewportClient->SetPresentationRect(PresentationRect);
+                    GameViewportClient->SetCursorClipRect(PresentationRect);
 
                     FGameplayInputRouteContext InputContext;
                     InputContext.World = World;
@@ -798,22 +811,16 @@ void FEditorViewportClient::UpdateLayoutRect()
 
 void FEditorViewportClient::RenderViewportImage(bool bIsActiveViewport)
 {
-	if (!Viewport || !Viewport->GetSRV()) return;
-
 	const FRect& R = ViewportScreenRect;
 	if (R.Width <= 0 || R.Height <= 0) return;
 
-	ImDrawList* DrawList = ImGui::GetWindowDrawList();
-	ImVec2 Min(R.X, R.Y);
-	ImVec2 Max(R.X + R.Width, R.Y + R.Height);
+	FImGuiViewportPresentOptions PresentOptions;
+	PresentOptions.bDrawActiveBorder = bIsActiveViewport;
 
-	DrawList->AddImage((ImTextureID)Viewport->GetSRV(), Min, Max);
-
-	// 활성 뷰포트 테두리 강조
-	if (bIsActiveViewport)
-	{
-		DrawList->AddRect(Min, Max, IM_COL32(255, 165, 0, 220), 0.0f, 0, 2.0f);
-	}
+	FImGuiViewportPresenter::DrawInCurrentWindow(
+		Viewport,
+		FViewportPresentationRect(R.X, R.Y, R.Width, R.Height),
+		PresentOptions);
 
 	// Marquee Selection 사각형 렌더링
 	if (bIsMarqueeSelecting)

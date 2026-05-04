@@ -9,6 +9,7 @@
 #include "Component/GizmoComponent.h"
 #include "GameFramework/World.h"
 #include "Viewport/GameViewportClient.h"
+#include "Viewport/ViewportPresentationTypes.h"
 #include "Editor/EditorRenderPipeline.h"
 #include "Editor/UI/EditorFileUtils.h"
 #include "Editor/Viewport/LevelEditorViewportClient.h"
@@ -159,6 +160,19 @@ UCameraComponent* UEditorEngine::GetCamera() const
 void UEditorEngine::RenderUI(float DeltaTime)
 {
 	MainPanel.Render(DeltaTime);
+
+	// PIE 중에는 게임 UI도 같은 UGameViewportClient 기준으로 렌더한다.
+	// RmlUi renderer가 PresentationRect로 scissor를 걸기 때문에 에디터 뷰포트 패널 밖으로 나가지 않는다.
+	if (IsPlayingInEditor())
+	{
+		if (UGameViewportClient* GameViewportClient = GetGameViewportClient())
+		{
+			FGameUiSystem& GameUi = GameViewportClient->GetGameUiSystem();
+			GameUi.SetPauseMenuVisible(false);
+			GameUi.Update(DeltaTime);
+			GameUi.Render();
+		}
+	}
 }
 
 void UEditorEngine::ToggleCoordSystem()
@@ -334,10 +348,25 @@ void UEditorEngine::StartPlayInEditorSession(const FRequestPlaySessionParams& Pa
 				InitialTargetCamera = ActiveVC->GetCamera();
 			}
 			InitialViewport = ActiveVC->GetViewport();
-			PIEViewportClient->SetCursorClipRect(ActiveVC->GetViewportScreenRect());
+			const FRect& ActiveRect = ActiveVC->GetViewportScreenRect();
+			const FViewportPresentationRect PresentationRect(
+				ActiveRect.X,
+				ActiveRect.Y,
+				ActiveRect.Width,
+				ActiveRect.Height);
+			PIEViewportClient->SetPresentationRect(PresentationRect);
+			PIEViewportClient->SetCursorClipRect(PresentationRect);
 		}
 		PIEViewportClient->SetPlayerController(PIEController);
 		PIEViewportClient->OnBeginPIE(InitialTargetCamera, InitialViewport);
+
+		FGameUiCallbacks UiCallbacks;
+		UiCallbacks.OnContinue = [this]()
+		{
+			RequestEndPlayMap();
+		};
+		PIEViewportClient->GetGameUiSystem().SetCallbacks(std::move(UiCallbacks));
+		PIEViewportClient->GetGameUiSystem().Initialize(Window, Renderer, PIEViewportClient);
 	}
 	EnterPIEPossessedMode();
 	
@@ -505,8 +534,18 @@ void UEditorEngine::SyncGameViewportPIEControlState(bool bPossessedMode)
 		{
 			Camera = ActiveVC->GetCamera();
 		}
-		PIEViewportClient->SetViewport(ActiveVC->GetViewport());
-		PIEViewportClient->SetCursorClipRect(ActiveVC->GetViewportScreenRect());
+		if (PIEViewportClient->GetViewport() != ActiveVC->GetViewport())
+		{
+			PIEViewportClient->SetViewport(ActiveVC->GetViewport());
+		}
+		const FRect& ActiveRect = ActiveVC->GetViewportScreenRect();
+		const FViewportPresentationRect PresentationRect(
+			ActiveRect.X,
+			ActiveRect.Y,
+			ActiveRect.Width,
+			ActiveRect.Height);
+		PIEViewportClient->SetPresentationRect(PresentationRect);
+		PIEViewportClient->SetCursorClipRect(PresentationRect);
 	}
 	PIEViewportClient->Possess(Camera);
 }

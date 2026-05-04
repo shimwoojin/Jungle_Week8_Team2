@@ -1,4 +1,4 @@
-﻿#include "Editor/Viewport/FLevelViewportLayout.h"
+#include "Editor/Viewport/FLevelViewportLayout.h"
 
 #include "Editor/EditorEngine.h"
 #include "Editor/Viewport/LevelEditorViewportClient.h"
@@ -23,6 +23,8 @@
 #include "GameFramework/World.h"
 #include "Render/Pipeline/Renderer.h"
 #include "Viewport/Viewport.h"
+#include "Viewport/GameViewportClient.h"
+#include "Viewport/ViewportPresentationTypes.h"
 #include "UI/SSplitter.h"
 #include "Math/MathUtils.h"
 #include "Platform/Paths.h"
@@ -1116,6 +1118,24 @@ void FLevelViewportLayout::RenderViewportUI(float DeltaTime)
 				FLevelEditorViewportClient* VC = LevelViewportClients[i];
 				VC->UpdateLayoutRect();
 				VC->RenderViewportImage(VC == ActiveViewportClient);
+			}
+		}
+
+		// PIE의 게임 뷰포트는 에디터 창 전체가 아니라 활성 뷰포트 패널 안에 표시된다.
+		// 따라서 입력/향후 RmlUi 렌더가 같은 좌표계를 쓰도록 실제 표시 Rect를 매 프레임 동기화한다.
+		if (Editor && Editor->IsPlayingInEditor() && ActiveViewportClient)
+		{
+			if (UGameViewportClient* GameViewportClient = Editor->GetGameViewportClient())
+			{
+				const FRect& ActiveRect = ActiveViewportClient->GetViewportScreenRect();
+				const FViewportPresentationRect PresentationRect(
+					ActiveRect.X,
+					ActiveRect.Y,
+					ActiveRect.Width,
+					ActiveRect.Height);
+
+				GameViewportClient->SetPresentationRect(PresentationRect);
+				GameViewportClient->SetCursorClipRect(PresentationRect);
 			}
 		}
 
